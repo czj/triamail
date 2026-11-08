@@ -18,12 +18,14 @@ struct MainView: View {
     @AppStorage("showsSidePane") private var showsSidePane = true
 
     var body: some View {
+        let selected = selectedMessage
+        let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
             messageList
                 .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 480)
         } detail: {
             Group {
-                if let message = selectedMessage {
+                if let message = selected {
                     MessageDetailView(message: message, translations: translations, replies: replies, summaries: summaries, settings: model.settings) {
                         markDone(message)
                     }
@@ -31,9 +33,9 @@ struct MainView: View {
                     ContentUnavailableView("Aucun mail sélectionné", systemImage: "envelope.open")
                 }
             }
-            .inspector(isPresented: sidePanePresented) {
-                if let message = selectedMessage {
-                    SidePane(message: message, settings: model.settings) { markDone(message) }
+            .inspector(isPresented: Binding(get: { showsSidePane && !sideContents.isEmpty }, set: { showsSidePane = $0 })) {
+                if let message = selected {
+                    SidePane(message: message, contents: sideContents, settings: model.settings) { markDone(message) }
                         .inspectorColumnWidth(min: 320, ideal: 520, max: 1000)
                 }
             }
@@ -51,7 +53,7 @@ struct MainView: View {
                     Task { await inbox.refresh(accounts: model.accounts) }
                 }
                 .keyboardShortcut("r")
-                .disabled(inbox.loading || (model.accounts.isEmpty && !InboxModel.demo))
+                .disabled(inbox.loading || !hasInbox)
             }
             ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: $showsSidePane) {
@@ -59,7 +61,7 @@ struct MainView: View {
                 }
                 .keyboardShortcut("0", modifiers: [.command, .option])
                 .help("Afficher la page ou la pièce jointe à droite (⌥⌘0)")
-                .disabled(!(selectedMessage.map(SidePane.hasContent) ?? false))
+                .disabled(sideContents.isEmpty)
             }
         }
         .task(id: model.accounts) {
@@ -70,15 +72,8 @@ struct MainView: View {
         .task(id: inbox.messages.map(\.id)) { await translations.process(inbox.messages) }
     }
 
-    private var sidePanePresented: Binding<Bool> {
-        Binding(
-            get: { showsSidePane && (selectedMessage.map(SidePane.hasContent) ?? false) },
-            set: { showsSidePane = $0 }
-        )
-    }
-
     @ViewBuilder private var messageList: some View {
-        if model.accounts.isEmpty && !InboxModel.demo {
+        if !hasInbox {
             ContentUnavailableView {
                 Label("Aucun compte connecté", systemImage: "envelope.badge.shield.half.filled")
             } description: {
@@ -92,7 +87,7 @@ struct MainView: View {
                 MessageRow(message: message, language: translations.language(of: message))
             }
             .safeAreaInset(edge: .top, spacing: 0) {
-                MailboxFilter(selection: $mailbox, count: { inbox.messages(in: $0).count })
+                MailboxFilter(selection: $mailbox, counts: inbox.counts)
             }
             .overlay {
                 if inbox.loading && messages.isEmpty {
@@ -114,13 +109,10 @@ struct MainView: View {
         }
     }
 
+    private var hasInbox: Bool { InboxModel.demo || !model.accounts.isEmpty }
+
     private var visibleMessages: [MailMessage] {
-        let messages = inbox.messages(in: mailbox)
-        let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return messages }
-        return messages.filter { message in
-            [message.from, message.subject, message.snippet].contains { $0.localizedStandardContains(query) }
-        }
+        inbox.messages(in: mailbox).filter { $0.matches(search) }
     }
 
     private var selectedMessage: MailMessage? {
@@ -128,35 +120,33 @@ struct MainView: View {
     }
 
     /// Archives the mail and moves to the next one, like Mimestream: triage never stops on an empty pane.
+    /// If Gmail refuses, the mail stays selected with the error shown.
     private func markDone(_ message: MailMessage) {
-        let list = visibleMessages
-        if let index = list.firstIndex(where: { $0.id == message.id }) {
-            let next = list.indices.contains(index + 1) ? list[index + 1] : (index > 0 ? list[index - 1] : nil)
-            selection = next?.id
+        let visible = visibleMessages
+        // Not in the list (filtered out by a search): the first visible mail.
+        let next = visible.firstIndex { $0.id == message.id } == nil ? visible.first : visible.neighbor(afterRemoving: message.id)
+        Task {
+            if await inbox.markDone(message), selection == message.id {
+                selection = next?.id
+            }
         }
-        Task { await inbox.markDone(message) }
     }
 }
 
 /// The categories, as a compact filter on top of the list instead of a sidebar.
 private struct MailboxFilter: View {
     @Binding var selection: Mailbox
-    let count: (Mailbox) -> Int
+    let counts: [Mailbox: Int]
 
     var body: some View {
         Picker("Filtre", selection: $selection) {
             ForEach(Mailbox.allCases) { mailbox in
-                Label {
-                    Text(mailbox.shortTitle) + Text(verbatim: " \(count(mailbox))").foregroundStyle(.secondary)
-                } icon: {
-                    Image(systemName: mailbox.symbol)
-                }
-                .tag(mailbox)
+                (Text(mailbox.shortTitle) + Text(verbatim: " \(counts[mailbox, default: 0])").foregroundStyle(.secondary))
+                    .tag(mailbox)
             }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .labelStyle(.titleOnly)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background {
@@ -177,15 +167,24 @@ private struct MessageRow: View {
     let language: Locale.Language?
 
     var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle()
+                .fill(.tint)
+                .frame(width: 7, height: 7)
+                .opacity(message.isUnread ? 1 : 0)
+                .accessibilityHidden(true)
+            details
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(message.isUnread ? Text("Non lu") : Text(""))
+    }
+
+    private var details: some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
-                Circle()
-                    .fill(.tint)
-                    .frame(width: 7, height: 7)
-                    .opacity(isUnread ? 1 : 0)
-                    .accessibilityHidden(true)
                 Text(message.senderName)
-                    .fontWeight(isUnread ? .semibold : .regular)
+                    .fontWeight(message.isUnread ? .semibold : .regular)
                     .lineLimit(1)
                 Spacer()
                 if let language {
@@ -199,15 +198,12 @@ private struct MessageRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Group {
-                Text(message.subject)
-                    .lineLimit(1)
-                Text(message.snippet)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            .padding(.leading, 15)
+            Text(message.subject)
+                .lineLimit(1)
+            Text(message.snippet)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
             Group {
                 if let repository = message.gitHubRepository {
                     Label(repository, systemImage: "chevron.left.forwardslash.chevron.right")
@@ -218,27 +214,11 @@ private struct MessageRow: View {
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
-            .padding(.leading, 15)
         }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
     }
-
-    private var isUnread: Bool { message.labelIDs.contains("UNREAD") }
 }
 
 struct MessageDetailView: View {
-    enum Pane: Hashable {
-        case translation, mail
-
-        var title: LocalizedStringKey {
-            switch self {
-            case .translation: "Traduction"
-            case .mail: "Original"
-            }
-        }
-    }
-
     let message: MailMessage
     let translations: TranslationModel
     let replies: ReplyModel
@@ -249,15 +229,13 @@ struct MessageDetailView: View {
     @State private var status: String?
     @State private var choosingReminderDate = false
     @State private var reminderDate = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
-    @State private var pane: Pane = .translation
+    /// For a translated mail: the original instead of the translation.
+    @State private var showsOriginal = false
     @State private var download: TranslationSession.Configuration?
 
     var body: some View {
         Group {
-            switch visiblePane {
-            case .translation: translationBody
-            case .mail: mailBody
-            }
+            if isTranslated && !showsOriginal { translationBody } else { mailBody }
         }
         .id(message.id)
         .safeAreaInset(edge: .top) { SummaryBanner(message: message, summaries: summaries) }
@@ -280,12 +258,19 @@ struct MessageDetailView: View {
             await translations.translate(message, with: session)
         }
         .toolbar {
-            if panes.count > 1 {
+            if isTranslated {
                 ToolbarItem {
-                    Picker("Affichage", selection: $pane) {
-                        ForEach(panes, id: \.self) { Text($0.title).tag($0) }
+                    Picker("Affichage", selection: $showsOriginal) {
+                        Text("Traduction").tag(false)
+                        Text("Original").tag(true)
                     }
                     .pickerStyle(.segmented)
+                }
+            }
+            if let link = message.primaryLink {
+                ToolbarItem {
+                    Link(destination: link) { Label("Ouvrir dans le navigateur", systemImage: "safari") }
+                        .help(link.absoluteString)
                 }
             }
             if let repository = message.gitHubRepository {
@@ -356,14 +341,7 @@ struct MessageDetailView: View {
         }
     }
 
-    private var panes: [Pane] {
-        (translations.language(of: message) != nil ? [.translation] : []) + [.mail]
-    }
-
-    /// The chosen pane if this mail has it, else the original.
-    private var visiblePane: Pane {
-        panes.contains(pane) ? pane : panes[0]
-    }
+    private var isTranslated: Bool { translations.language(of: message) != nil }
 
     @ViewBuilder private var translationBody: some View {
         switch translations.state(of: message) {
@@ -426,35 +404,52 @@ struct MessageDetailView: View {
 /// The right-hand pane: the page a notification points to, or the invoice to archive.
 struct SidePane: View {
     let message: MailMessage
+    /// `message.sideContents`, already computed by the caller: never empty when the pane shows.
+    let contents: [SideContent]
     let settings: SharedSettings
     let markDone: () -> Void
-
-    static func hasContent(_ message: MailMessage) -> Bool {
-        Mailbox.invoices.contains(message) || message.primaryLink != nil
-    }
+    @State private var chosen: SideContent?
 
     var body: some View {
-        Group {
-            if Mailbox.invoices.contains(message) {
-                InvoicePane(message: message, settings: settings, markDone: markDone)
-            } else if let link = message.primaryLink {
-                VStack(spacing: 0) {
-                    HStack {
-                        Image(systemName: "globe").foregroundStyle(.secondary)
-                        Text(link.host() ?? "").font(.caption.weight(.medium))
-                        Text(link.path()).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                        Spacer()
-                        Link(destination: link) { Image(systemName: "safari") }
-                            .help("Ouvrir dans le navigateur")
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    Divider()
-                    WebPanel(url: link)
+        let current = chosen ?? contents.first
+        VStack(spacing: 0) {
+            if contents.count > 1 {
+                Picker("Affichage", selection: Binding(get: { current }, set: { chosen = $0 })) {
+                    ForEach(contents, id: \.self) { Text($0.title).tag(Optional($0)) }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(8)
+                Divider()
+            }
+            switch current {
+            case .invoice:
+                InvoicePane(message: message, settings: settings, markDone: markDone)
+            case let .page(link):
+                HStack {
+                    Image(systemName: "globe").foregroundStyle(.secondary)
+                    Text(link.host() ?? "").font(.caption.weight(.medium))
+                    Text(link.path(percentEncoded: false)).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                Divider()
+                WebPanel(url: link)
+            case nil:
+                EmptyView()
             }
         }
         .id(message.id)
+    }
+}
+
+extension SideContent {
+    var title: LocalizedStringKey {
+        switch self {
+        case .invoice: "Facture"
+        case .page: "Page"
+        }
     }
 }
 
@@ -474,15 +469,6 @@ extension Mailbox {
         case .github: "GitHub"
         case .invoices: "Factures et commandes"
         case .direct: "Pour moi"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .toTriage: "tray"
-        case .github: "chevron.left.forwardslash.chevron.right"
-        case .invoices: "doc.text"
-        case .direct: "person"
         }
     }
 }
