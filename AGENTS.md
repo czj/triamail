@@ -27,7 +27,7 @@ Principes :
 - IA : modèle local d'Apple par défaut, API Mistral en option.
 - Rien de personnel en dur : tout se règle dans l'app. Réglages partagés : `reglages.json` et `modeles/` dans un dossier iCloud Drive (`SettingsStore`) ; secrets : trousseau (`Keychain`).
 - Feuille de route : les issues numérotées « Étape n sur N », traitées dans l'ordre, une PR par issue (`Closes #n`).
-- Mises à jour : Sparkle 2 (flux appcast signé EdDSA, publié avec chaque release GitHub). La clé privée EdDSA reste dans le trousseau et dans les secrets GitHub, jamais dans le dépôt.
+- Mises à jour : Sparkle 2. La release publie `appcast.xml`, signé EdDSA avec le secret `SPARKLE_PRIVATE_KEY` ; la clé publique vient de la variable du dépôt `SPARKLE_PUBLIC_KEY`. Sans elles, Sparkle reste éteint (builds locaux).
 
 ## Langue
 Le code, les noms de types et les commentaires sont en anglais ; la documentation et les textes de l'interface sont en français.
