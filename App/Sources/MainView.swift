@@ -23,7 +23,7 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360)
         } detail: {
             if let message = selectedMessage {
-                MessageDetailView(message: message, translations: translations) {
+                MessageDetailView(message: message, translations: translations, remindersList: model.settings.remindersListName) {
                     Task { await inbox.markDone(message) }
                 }
             } else {
@@ -131,7 +131,11 @@ struct MessageDetailView: View {
 
     let message: MailMessage
     let translations: TranslationModel
+    let remindersList: String?
     let markDone: () -> Void
+    @State private var reminderStatus: String?
+    @State private var choosingReminderDate = false
+    @State private var reminderDate = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
     @State private var pane: Pane = .page
     @State private var download: TranslationSession.Configuration?
 
@@ -144,6 +148,19 @@ struct MessageDetailView: View {
             }
         }
         .id(message.id)
+        .safeAreaInset(edge: .bottom) {
+            if let reminderStatus {
+                Label(reminderStatus, systemImage: "bell")
+                    .font(.caption)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.bar)
+                    .task(id: reminderStatus) {
+                        try? await Task.sleep(for: .seconds(4))
+                        self.reminderStatus = nil
+                    }
+            }
+        }
         .translationTask(download) { session in
             await translations.translate(message, with: session)
         }
@@ -169,9 +186,42 @@ struct MessageDetailView: View {
                 }
             }
             ToolbarItem {
+                Menu("Rappel", systemImage: "bell") {
+                    ForEach(ReminderDelay.presets, id: \.self) { delay in
+                        Button(delay.title) { addReminder(delay) }
+                    }
+                    Divider()
+                    Button("Choisir une date…") { choosingReminderDate = true }
+                }
+                .help(reminderStatus ?? "Créer un rappel dans Rappels")
+                .popover(isPresented: $choosingReminderDate) {
+                    VStack {
+                        DatePicker("Rappel le", selection: $reminderDate, in: Date.now..., displayedComponents: .date)
+                            .datePickerStyle(.graphical)
+                        Button("Créer le rappel") {
+                            choosingReminderDate = false
+                            addReminder(.on(reminderDate))
+                        }
+                        .keyboardShortcut(.defaultAction)
+                    }
+                    .padding()
+                }
+            }
+            ToolbarItem {
                 Button("Traité", systemImage: "checkmark") { markDone() }
                     .keyboardShortcut("e")
                     .help("Archive le mail dans Gmail : il sort de la liste")
+            }
+        }
+    }
+
+    private func addReminder(_ delay: ReminderDelay) {
+        Task {
+            do {
+                let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: remindersList)
+                reminderStatus = "Rappel \(delay.title) créé dans « \(list) »"
+            } catch {
+                reminderStatus = error.localizedDescription
             }
         }
     }
