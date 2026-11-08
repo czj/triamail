@@ -116,10 +116,44 @@ private struct MessageRow: View {
 }
 
 struct MessageDetailView: View {
+    enum Pane: Hashable { case mail, page }
+
     let message: MailMessage
     let markDone: () -> Void
+    @State private var pane: Pane = .page
 
     var body: some View {
+        Group {
+            if let link = message.primaryLink, pane == .page {
+                WebPanel(url: link)
+            } else {
+                mailBody
+            }
+        }
+        .id(message.id)
+        .toolbar {
+            if let link = message.primaryLink {
+                ToolbarItem {
+                    Picker("Affichage", selection: $pane) {
+                        Text("Page").tag(Pane.page)
+                        Text("Mail").tag(Pane.mail)
+                    }
+                    .pickerStyle(.segmented)
+                }
+                ToolbarItem {
+                    Link(destination: link) { Label("Ouvrir dans le navigateur", systemImage: "safari") }
+                        .help(link.absoluteString)
+                }
+            }
+            ToolbarItem {
+                Button("Traité", systemImage: "checkmark") { markDone() }
+                    .keyboardShortcut("e")
+                    .help("Archive le mail dans Gmail : il sort de la liste")
+            }
+        }
+    }
+
+    private var mailBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text(message.subject)
@@ -138,13 +172,6 @@ struct MessageDetailView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding()
-        }
-        .toolbar {
-            ToolbarItem {
-                Button("Traité", systemImage: "checkmark") { markDone() }
-                    .keyboardShortcut("e")
-                    .help("Archive le mail dans Gmail : il sort de la liste")
-            }
         }
     }
 }
