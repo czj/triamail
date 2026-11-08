@@ -85,3 +85,16 @@ import Testing
         #expect(!Mailbox.toTriage.contains(message))
     }
 }
+
+@Suite struct GmailFailureTests {
+    @Test func googleErrorMessageIsKept() {
+        let body = Data(#"{"error":{"code":403,"message":"Insufficient Permission","status":"PERMISSION_DENIED"}}"#.utf8)
+        #expect(GmailFailure.googleMessage(in: body) == "Insufficient Permission")
+        #expect(GmailFailure.http(403, "Insufficient Permission").errorDescription == "Gmail a répondu 403 : Insufficient Permission.")
+        #expect(GmailFailure.googleMessage(in: Data("<html>".utf8)) == nil)
+    }
+
+    @Test func expiredAccessAsksToReconnect() {
+        #expect(GmailFailure.http(401, nil).errorDescription?.contains("reconnecte") == true)
+    }
+}
