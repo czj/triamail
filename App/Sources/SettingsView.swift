@@ -32,6 +32,7 @@ struct GeneralSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var choosingFolder = false
     @State private var reminderLists: [String] = []
+    @State private var choosingCodeRoot = false
 
     var body: some View {
         Form {
@@ -53,6 +54,31 @@ struct GeneralSettingsView: View {
                 Text("Réglages et modèles de réponse")
             } footer: {
                 Text("Un dossier dans iCloud Drive partage les réglages entre tes Mac. Les secrets restent dans le trousseau de chaque Mac.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                @Bindable var model = model
+                LabeledContent("Dossier des dépôts") {
+                    HStack {
+                        Text(model.settings.codeRoot ?? "Aucun").foregroundStyle(.secondary)
+                        Button("Choisir…") { choosingCodeRoot = true }
+                            .fileImporter(isPresented: $choosingCodeRoot, allowedContentTypes: [.folder]) { result in
+                                if case let .success(url) = result {
+                                    model.settings.codeRoot = url.path.abbreviatingHomeDirectory
+                                    model.save()
+                                }
+                            }
+                    }
+                }
+                Picker("Terminal", selection: $model.settings.terminalBundleID) {
+                    ForEach(ClaudeCodeLauncher.terminals, id: \.bundleID) { Text($0.name).tag($0.bundleID) }
+                }
+                .onChange(of: model.settings.terminalBundleID) { model.save() }
+            } header: {
+                Text("Claude Code")
+            } footer: {
+                Text("Un dépôt « propriétaire/nom » est cherché dans ce dossier sous le nom « nom ». Claude Code est lancé en local, dans ce terminal.")
                     .foregroundStyle(.secondary)
             }
 

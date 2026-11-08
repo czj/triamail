@@ -201,6 +201,22 @@ struct MessageDetailView: View {
                         .help(link.absoluteString)
                 }
             }
+            if message.gitHubRepository != nil {
+                ToolbarItem {
+                    Button("Claude Code", systemImage: "terminal") {
+                        Task {
+                            do {
+                                try await ClaudeCodeLauncher.launch(message, settings: settings)
+                                reminderStatus = "Claude Code lancé dans \(message.gitHubRepository ?? "")"
+                            } catch {
+                                reminderStatus = error.localizedDescription
+                            }
+                        }
+                    }
+                    .keyboardShortcut("k", modifiers: [.command, .shift])
+                    .help("Ouvrir Claude Code sur le dépôt, avec la notification")
+                }
+            }
             ToolbarItem {
                 Button("Résumer", systemImage: "text.line.first.and.arrowtriangle.forward") {
                     summaries.summarize(message, settings: settings)
