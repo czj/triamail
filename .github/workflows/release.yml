@@ -3,14 +3,14 @@ name: Release
 on:
   push:
     branches: [main]
-  # Lancement à la main (sur n'importe quelle branche) : construit l'app et la joint au run, sans rien publier.
+  # Manual run (on any branch): builds the app and attaches it to the run, without publishing anything.
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
 
-# Une publication à la fois, jamais interrompue en cours.
+# One release at a time, never cancelled midway.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 45
     env:
       TAG: ${{ needs.release-please.outputs.tag }}
-      # Un secret ne peut pas servir dans un `if` : on n'expose que leur présence.
+      # Secrets cannot be used in an `if`: only expose whether they are set.
       HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
       HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_CERTIFICATE != '' }}
     steps:
@@ -50,9 +50,9 @@ jobs:
           if [ -n "$TAG" ]; then VERSION=${TAG##*v}; else
             VERSION=$(sed -nE 's/.*MARKETING_VERSION: "([^"]+)".*/\1/p' project.yml); fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-      # Facultatif : avec un certificat « Developer ID Application » (abonnement Apple Developer),
-      # l'app est signée et notarisée et s'ouvre sans avertissement. Sinon : signature ad hoc.
-      - name: Certificat Developer ID
+      # Optional: with a "Developer ID Application" certificate (Apple Developer Program), the app is
+      # signed and notarized and opens without a warning. Otherwise: ad hoc signature.
+      - name: Developer ID certificate
         if: ${{ env.HAS_DEVELOPER_ID == 'true' }}
         env:
           CERTIFICATE: ${{ secrets.DEVELOPER_ID_CERTIFICATE }}
@@ -69,18 +69,18 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
           rm "$RUNNER_TEMP/cert.p12"
           IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -nE 's/.*"(Developer ID Application: [^"]+)".*/\1/p' | head -1)
-          [ -n "$IDENTITY" ] || { echo "::error::Aucune identité Developer ID Application dans le certificat"; exit 1; }
+          [ -n "$IDENTITY" ] || { echo "::error::No Developer ID Application identity in the certificate"; exit 1; }
           echo "DEVELOPER_ID=$IDENTITY" >> "$GITHUB_ENV"
-      - name: Construire et empaqueter
+      - name: Build and package
         env:
           SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        # Le numéro du run sert de numéro de build : Sparkle le compare d'une version à l'autre.
+        # The run number is the build number: Sparkle compares it between versions.
         run: scripts/package.sh "$VERSION" "$GITHUB_RUN_NUMBER"
-      # Le flux Sparkle, signé avec la clé privée (secret du dépôt). Sans secret : pas de flux, l'app reste sans mises à jour.
-      - name: Flux de mises à jour (Sparkle)
+      # The Sparkle feed, signed with the private key (repository secret). Without it: no feed, the app gets no updates.
+      - name: Update feed (Sparkle)
         if: ${{ env.HAS_SPARKLE_KEY == 'true' && env.TAG != '' }}
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
@@ -93,26 +93,26 @@ jobs:
           sparkle/bin/generate_appcast --ed-key-file "$RUNNER_TEMP/ed25519" \
             --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/" dist
           rm "$RUNNER_TEMP/ed25519"
-      - name: Joindre au run (lancement à la main)
+      - name: Attach to the run (manual run)
         if: ${{ env.TAG == '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Triamail-${{ env.VERSION }}
           path: Triamail.dmg
           retention-days: 7
-      - name: Joindre à la release et la publier
+      - name: Attach to the release and publish it
         if: ${{ env.TAG != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "$TAG" Triamail.dmg Triamail.zip dist/*.zip --clobber
           if [ -f dist/appcast.xml ]; then gh release upload "$TAG" dist/appcast.xml --clobber; fi
-          # La façon d'installer, sous le changelog écrit par release-please.
+          # How to install, below the changelog written by release-please.
           {
             gh release view "$TAG" --json body --jq .body
-            printf '\n## Installer\n\n'
-            printf -- '- **Homebrew** : `brew tap czj/triamail https://github.com/czj/triamail && brew install --cask triamail`\n'
-            printf -- '- **À la main** : ouvrir `Triamail.dmg` et glisser Triamail dans Applications.\n'
+            printf '\n## Install\n\n'
+            printf -- '- **Homebrew**: `brew tap czj/triamail https://github.com/czj/triamail && brew install --cask triamail`\n'
+            printf -- '- **Manually**: open `Triamail.dmg` and drag Triamail to Applications.\n'
           } > notes.md
-          # Release immuable : tout est joint au brouillon, puis on publie (plus rien ne bouge ensuite).
+          # Immutable release: everything is attached to the draft, then it is published (nothing changes afterwards).
           gh release edit "$TAG" --notes-file notes.md --draft=false --latest
