@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/czj/triamail/compare/v0.2.0...v0.2.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* Homebrew 7 cask syntax and English developer files ([#54](https://github.com/czj/triamail/issues/54)) ([b1be614](https://github.com/czj/triamail/commit/b1be614bf5e3aceebd5297607003ecd266bb9e72))
+* launch crash on macOS 27 with ad hoc signatures ([#57](https://github.com/czj/triamail/issues/57)) ([c7b6cb5](https://github.com/czj/triamail/commit/c7b6cb595ac9a53dc382cdbe937b752e8bfb8efd))
+
+
+### Documentation
+
+* README, AGENTS.md and modeles/README.md in English ([#53](https://github.com/czj/triamail/issues/53)) ([1bfbfa1](https://github.com/czj/triamail/commit/1bfbfa1785ff330053769ae59ddf7cf02fffddfa))
+
 ## [0.2.0](https://github.com/czj/triamail/compare/v0.1.0...v0.2.0) (2026-11-08)
 
 
