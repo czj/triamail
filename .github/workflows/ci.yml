@@ -33,12 +33,12 @@ jobs:
             ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact --verbose /repo
       - name: Téléphones et adresses mail
         run: |
-          # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques.
+          # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques publiques (GitHub…).
           if git grep -nIE '(\+33|0033|\b0)[ .]?[1-9]([ .]?[0-9]{2}){4}' -- . ':!*.lock' \
              | grep -vE '\+33 1 23 45 67 89|01 23 45 67 89'; then
             echo "::error::Numéro de téléphone trouvé : voir AGENTS.md"; exit 1; fi
           if git grep -nIE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- . \
-             | grep -viE '@([a-z0-9-]+\.)*(exemple|example)\.(com|org|fr)|@anthropic\.com|@users\.noreply\.github\.com'; then
+             | grep -viE '@([a-z0-9-]+\.)*(exemple|example)\.(com|org|fr)|@anthropic\.com|notifications@github\.com|@([a-z0-9-]+\.)*noreply\.github\.com'; then
             echo "::error::Adresse mail trouvée : voir AGENTS.md"; exit 1; fi
 
   build:
