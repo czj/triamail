@@ -11,6 +11,8 @@ final class AppModel {
     private(set) var store: SettingsStore
     var settings = SharedSettings()
     var lastError: String?
+    /// True when reglages.json exists but could not be read: saving would overwrite it with defaults.
+    private var loadFailed = false
     /// Connected Gmail accounts on this Mac (their tokens are in this Mac's keychain).
     private(set) var accounts: [GmailAccount] = []
 
@@ -43,16 +45,19 @@ final class AppModel {
     func reload() {
         do {
             settings = try store.load()
+            loadFailed = false
             if let bundled = Bundle.main.url(forResource: "modeles", withExtension: nil) {
                 try store.installTemplates(from: bundled)
             }
             lastError = nil
         } catch {
-            lastError = "Impossible de lire les réglages : \(error.localizedDescription)"
+            loadFailed = true
+            lastError = "Impossible de lire les réglages : \(error.localizedDescription). Rien ne sera enregistré tant que le fichier n'est pas corrigé."
         }
     }
 
     func save() {
+        guard !loadFailed else { return }
         do {
             try store.save(settings)
             lastError = nil
