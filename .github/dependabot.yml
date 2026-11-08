@@ -1,5 +1,5 @@
-# Les actions sont épinglées par commit, pas par tag (un tag peut être déplacé) : Dependabot propose
-# chaque nouvelle version, une semaine après sa sortie, dans une seule PR.
+# Actions are pinned by commit, not by tag (a tag can be moved): Dependabot proposes
+# each new version, a week after its release, in a single PR.
 version: 2
 updates:
   - package-ecosystem: github-actions

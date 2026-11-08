@@ -8,17 +8,18 @@ cask "triamail" do
 
   url "https://github.com/czj/triamail/releases/latest/download/Triamail.dmg"
   name "Triamail"
-  desc "Client mail pour trier les mails et agir dessus"
+  desc "Mail client to triage emails and act on them"
   homepage "https://github.com/czj/triamail"
 
   auto_updates true
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Triamail.app"
 
   # Releases without an Apple Developer ID are only signed ad hoc: without this, Gatekeeper refuses to open them.
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{appdir}/Triamail.app"]
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/Triamail.app"],
+                          writable_paths: ["Triamail.app"], writable_base: :appdir
   end
 
   zap trash: [
