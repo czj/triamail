@@ -31,8 +31,20 @@ Principes :
 Le code, les noms de types et les commentaires sont en anglais ; la documentation et les textes de l'interface sont en français.
 
 ## Façon de travailler
-- Jamais de commit direct sur `main` : une branche, puis une pull request. La CI doit passer avant la fusion.
+- Jamais de commit direct sur `main` : une branche, puis une pull request, fusionnée en squash. La règle de protection de `main` exige le seul contrôle « CI passed ».
+- Sûr de toi : ouvre la PR prête et active l'auto-merge (`gh pr merge --auto --squash`), elle fusionne dès que la CI est verte. Pas encore : une PR en brouillon (elle ne lance pas la CI), puis `gh pr ready`.
+- Les actions GitHub sont épinglées par commit avec la version en commentaire ; Dependabot propose les mises à jour.
 - Messages de commit et titres de PR au format Conventional Commits, type en anglais et description en français : `feat: rappels J+1, J+3, J+7`, `fix: …`, `docs: …`, `chore: …`. `feat` et `fix` apparaissent dans le changelog ; `feat!` ou `BREAKING CHANGE` déclenche une version majeure.
 - Ne modifie pas `CHANGELOG.md` ni les numéros de version à la main : release-please s'en charge à chaque fusion sur `main` (PR « chore(main): release x.y.z » à fusionner pour publier).
 - L'app se compile sur macOS uniquement. Dans une session cloud Linux, on ne peut pas compiler : pousse et lis le résultat de la CI (`gh run watch`).
 - Tiens `README.md` à jour quand une fonction visible change.
+
+## Captures d'écran dans les PR et les issues
+`gh` ≥ 2.99 envoie lui-même captures et vidéos : `--attach './capture.png#Texte alternatif'` (répétable) sur `gh {issue,pr} {create,edit,comment}`. Un `![alt](./capture.png)` déjà dans le texte est remplacé par l'URL envoyée ; les fichiers non référencés sont ajoutés à la fin.
+
+Une PR qui change ce qu'on voit à l'écran montre chaque vue touchée avant et après : avant sur la branche cible, après sur la branche de la PR. Une issue qui décrit un problème visible joint une capture.
+
+- Sur un Mac : `screencapture -o -l <id de fenêtre> capture.png` (fenêtre seule, sans ombre), ou les captures des tests d'interface (XCUITest).
+- Dans une session cloud Linux, l'app ne tourne pas : prends les captures dans la CI macOS (tests d'interface, joints au run) ou demande-les.
+- Les captures ne montrent que des données fictives : jamais un vrai mail, un vrai nom ni une vraie adresse (voir la règle n°1).
+- Quand le changement touche l'accessibilité (libellés VoiceOver, rôles), ajoute le diff de l'arbre d'accessibilité : des pixels identiques n'y prouvent rien.

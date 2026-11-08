@@ -1,0 +1,13 @@
+# Les actions sont épinglées par commit, pas par tag (un tag peut être déplacé) : Dependabot propose
+# chaque nouvelle version, une semaine après sa sortie, dans une seule PR.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]

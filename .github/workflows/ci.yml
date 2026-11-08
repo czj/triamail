@@ -3,23 +3,34 @@ name: CI
 on:
   push:
     branches: [main]
+  # Une PR en brouillon ne lance rien : la passer en « prête » démarre la CI.
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   no-personal-data:
     name: Aucune info personnelle ni secret
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          persist-credentials: false
+          fetch-depth: 0 # gitleaks lit tout l'historique
       - name: Secrets (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact --verbose /repo
       - name: Téléphones et adresses mail
         run: |
           # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques.
@@ -32,9 +43,14 @@ jobs:
 
   build:
     name: Build macOS
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: macos-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build et tests
         run: |
           if [ -f Package.swift ]; then
@@ -45,3 +61,17 @@ jobs:
           else
             echo "Pas encore de code à compiler."
           fi
+
+  # Le seul contrôle exigé par la règle de protection de main : on peut ajouter ou renommer
+  # des jobs au-dessus sans toucher à la règle. Tout nouveau job doit figurer dans needs.
+  passed:
+    name: CI passed
+    if: ${{ always() && !github.event.pull_request.draft }}
+    needs: [no-personal-data, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Tous les jobs ont réussi
+        run: echo "$NEEDS" | jq --exit-status 'all(.[]; .result == "success")'
+        env:
+          NEEDS: ${{ toJSON(needs) }}
