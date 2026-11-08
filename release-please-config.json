@@ -34,7 +34,13 @@
           "hidden": true
         }
       ],
-      "initial-version": "0.1.0"
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "project.yml"
+        }
+      ]
     }
   }
 }

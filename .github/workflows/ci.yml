@@ -44,23 +44,24 @@ jobs:
   build:
     name: Build macOS
     if: ${{ !github.event.pull_request.draft }}
-    runs-on: macos-latest
-    timeout-minutes: 20
+    runs-on: macos-26
+    timeout-minutes: 30
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Build et tests
+      - name: Versions
+        run: xcodebuild -version && swift --version
+      - name: Tests de TriamailKit
+        run: swift test --package-path Packages/TriamailKit
+      - name: Générer le projet Xcode
+        run: brew install xcodegen && xcodegen generate
+      - name: Compiler l'app
         run: |
-          if [ -f Package.swift ]; then
-            swift build && swift test
-          elif ls *.xcodeproj >/dev/null 2>&1; then
-            xcodebuild -scheme Triamail -destination 'platform=macOS' \
-              CODE_SIGNING_ALLOWED=NO build test
-          else
-            echo "Pas encore de code à compiler."
-          fi
+          xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Debug \
+            -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build | tail -40
+          exit "${PIPESTATUS[0]}"
 
   # Le seul contrôle exigé par la règle de protection de main : on peut ajouter ou renommer
   # des jobs au-dessus sans toucher à la règle. Tout nouveau job doit figurer dans needs.

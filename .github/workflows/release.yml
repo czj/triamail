@@ -30,7 +30,7 @@ jobs:
   build-app:
     needs: release-please
     if: needs.release-please.outputs.created == 'true'
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 30
     steps:
       - name: Check out
@@ -39,11 +39,10 @@ jobs:
           persist-credentials: false
       - name: Construire l'app
         run: |
-          if ! ls *.xcodeproj >/dev/null 2>&1; then
-            echo "Pas encore de projet Xcode : rien à joindre."; exit 0; fi
-          xcodebuild -scheme Triamail -configuration Release \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
-          APP=$(find build -name 'Triamail.app' -maxdepth 6 | head -1)
+          brew install xcodegen && xcodegen generate
+          xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Release \
+            -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          APP=$(find build/Build/Products/Release -maxdepth 1 -name 'Triamail.app' | head -1)
           ditto -c -k --keepParent "$APP" Triamail.zip
           gh release upload "${{ needs.release-please.outputs.tag }}" Triamail.zip --clobber
         env:
