@@ -50,6 +50,9 @@ final class TranslationModel {
         do {
             let text = try await Self.translate(LanguageDetector.paragraphs(of: message.plainText), with: session)
             states[message.id] = .done(text)
+        } catch is CancellationError {
+            // The list was refreshed mid-way: forget it, the next pass translates it again.
+            states[message.id] = nil
         } catch {
             states[message.id] = .failed(error.localizedDescription)
         }
