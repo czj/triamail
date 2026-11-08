@@ -4,7 +4,7 @@ import TriamailKit
 /// Writes the launch script and opens it with the chosen terminal.
 enum ClaudeCodeLauncher {
     static let terminals: [(name: String, bundleID: String)] = [
-        ("Terminal", "com.apple.Terminal"),
+        ("Terminal", SharedSettings.defaultTerminal),
         ("iTerm2", "com.googlecode.iterm2"),
     ]
 

@@ -26,7 +26,7 @@ public struct ArchiveFolder: Codable, Hashable, Identifiable, Sendable {
         self.accountingEmail = accountingEmail
     }
 
-    public var url: URL { URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true) }
+    public var url: URL { path.expandingTildeURL }
 }
 
 /// "If the sender, the file name or the PDF text matches, then this folder, this name, accounting or not."

@@ -6,51 +6,47 @@ public struct SharedSettings: Codable, Equatable, Sendable {
     public static let currentVersion = 1
     public static let defaultTerminal = "com.apple.Terminal"
 
-    public var version: Int
-    public var archiveFolders: [ArchiveFolder]
-    public var archiveRules: [ArchiveRule]
+    public var version = SharedSettings.currentVersion
+    public var archiveFolders: [ArchiveFolder] = []
+    public var archiveRules: [ArchiveRule] = []
     /// The Reminders list for C4; nil means the default list.
     public var remindersListName: String?
-    public var profile: Profile
-    public var aiProvider: AIProvider
+    public var profile = Profile()
+    public var aiProvider = AIProvider.appleLocal
     /// Where the repositories are cloned ("~/code"): "owner/repo" is looked for there by name.
     public var codeRoot: String?
     /// Exceptions: "owner/repo" → "~/somewhere/else".
-    public var repositoryFolders: [String: String]
+    public var repositoryFolders: [String: String] = [:]
     /// The terminal app that runs Claude Code.
-    public var terminalBundleID: String
-    public var mistralModel: String
+    public var terminalBundleID = SharedSettings.defaultTerminal
+    public var mistralModel = MistralClient.defaultModel
     /// Folders the "Tidy" button goes through (Downloads, Desktop, scans…), as "~/…" paths.
-    public var tidySourcePaths: [String]
+    public var tidySourcePaths: [String] = []
 
     public init(archiveFolders: [ArchiveFolder] = [], archiveRules: [ArchiveRule] = [], remindersListName: String? = nil) {
-        self.version = Self.currentVersion
         self.archiveFolders = archiveFolders
         self.archiveRules = archiveRules
         self.remindersListName = remindersListName
-        self.tidySourcePaths = []
-        self.profile = Profile()
-        self.aiProvider = .appleLocal
-        self.codeRoot = nil
-        self.repositoryFolders = [:]
-        self.terminalBundleID = Self.defaultTerminal
-        self.mistralModel = MistralClient.defaultModel
     }
 
-    // Missing keys fall back to defaults, so older files keep loading as settings grow.
+    // Missing keys keep their default, so older files keep loading as settings grow.
     public init(from decoder: Decoder) throws {
+        self.init()
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? Self.currentVersion
-        archiveFolders = try container.decodeIfPresent([ArchiveFolder].self, forKey: .archiveFolders) ?? []
-        archiveRules = try container.decodeIfPresent([ArchiveRule].self, forKey: .archiveRules) ?? []
+        func value<T: Decodable>(_ key: CodingKeys, _ fallback: T) throws -> T {
+            try container.decodeIfPresent(T.self, forKey: key) ?? fallback
+        }
+        version = try value(.version, version)
+        archiveFolders = try value(.archiveFolders, archiveFolders)
+        archiveRules = try value(.archiveRules, archiveRules)
         remindersListName = try container.decodeIfPresent(String.self, forKey: .remindersListName)
-        tidySourcePaths = try container.decodeIfPresent([String].self, forKey: .tidySourcePaths) ?? []
-        profile = try container.decodeIfPresent(Profile.self, forKey: .profile) ?? Profile()
-        aiProvider = try container.decodeIfPresent(AIProvider.self, forKey: .aiProvider) ?? .appleLocal
+        profile = try value(.profile, profile)
+        aiProvider = try value(.aiProvider, aiProvider)
         codeRoot = try container.decodeIfPresent(String.self, forKey: .codeRoot)
-        repositoryFolders = try container.decodeIfPresent([String: String].self, forKey: .repositoryFolders) ?? [:]
-        terminalBundleID = try container.decodeIfPresent(String.self, forKey: .terminalBundleID) ?? Self.defaultTerminal
-        mistralModel = try container.decodeIfPresent(String.self, forKey: .mistralModel) ?? MistralClient.defaultModel
+        repositoryFolders = try value(.repositoryFolders, repositoryFolders)
+        terminalBundleID = try value(.terminalBundleID, terminalBundleID)
+        mistralModel = try value(.mistralModel, mistralModel)
+        tidySourcePaths = try value(.tidySourcePaths, tidySourcePaths)
     }
 }
 
