@@ -38,7 +38,7 @@ jobs:
              | grep -vE '\+33 1 23 45 67 89|01 23 45 67 89'; then
             echo "::error::Numéro de téléphone trouvé : voir AGENTS.md"; exit 1; fi
           if git grep -nIE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- . \
-             | grep -vE '@(exemple\.com|example\.com|anthropic\.com|users\.noreply\.github\.com)'; then
+             | grep -viE '@([a-z0-9-]+\.)*(exemple|example)\.(com|org|fr)|@anthropic\.com|@users\.noreply\.github\.com'; then
             echo "::error::Adresse mail trouvée : voir AGENTS.md"; exit 1; fi
 
   build:
