@@ -22,9 +22,11 @@ Triamail est un client macOS natif (SwiftUI) pour trier les mails et agir dessus
 
 Principes :
 - Aucune tâche de fond qui agit : chaque action part d'un clic de l'utilisateur. Seules exceptions : la détection de langue et la traduction locale.
-- Mail : API Gmail d'abord, IMAP plus tard.
+- Mail : API Gmail uniquement pour l'instant.
+- Claude Code : en local uniquement.
 - IA : modèle local d'Apple par défaut, API Mistral en option.
-- Rien de personnel en dur : tout se règle dans l'app.
+- Rien de personnel en dur : tout se règle dans l'app. Réglages partagés : `reglages.json` et `modeles/` dans un dossier iCloud Drive (`SettingsStore`) ; secrets : trousseau (`Keychain`).
+- Feuille de route : les issues numérotées « Étape n sur N », traitées dans l'ordre, une PR par issue (`Closes #n`).
 - Mises à jour : Sparkle 2 (flux appcast signé EdDSA, publié avec chaque release GitHub). La clé privée EdDSA reste dans le trousseau et dans les secrets GitHub, jamais dans le dépôt.
 
 ## Langue
