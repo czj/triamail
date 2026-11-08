@@ -25,7 +25,7 @@ extension MailMessage {
         let now = Date.now
         func mail(_ id: String, from: String, subject: String, minutes: Double, snippet: String, text: String,
                   listID: String? = nil, unread: Bool = false, attachments: [Attachment] = []) -> MailMessage {
-            MailMessage(id: id, threadID: id, account: SampleMailSource.account.email, from: from, to: "Jeanne Exemple <jeanne@exemple.com>",
+            MailMessage(id: id, threadID: id, account: SampleMailSource.account.email, from: from, to: "Jeanne Exemple <\(SampleMailSource.account.email)>",
                         cc: "", subject: subject, date: now.addingTimeInterval(-minutes * 60), snippet: snippet, listID: listID,
                         labelIDs: unread ? ["UNREAD", "INBOX"] : ["INBOX"], plainText: text, html: nil, attachments: attachments)
         }

@@ -408,7 +408,6 @@ struct MessageDetailView: View {
 
 /// The right-hand pane: the page a notification points to, or the invoice to archive.
 struct SidePane: View {
-    @Environment(AppModel.self) private var model
     let message: MailMessage
     /// `message.sideContents`, already computed by the caller: never empty when the pane shows.
     let contents: [SideContent]
@@ -430,7 +429,7 @@ struct SidePane: View {
             }
             switch current {
             case .invoice:
-                InvoicePane(message: message, settings: settings, source: model.mailSource, markDone: markDone)
+                InvoicePane(message: message, settings: settings, markDone: markDone)
             case let .page(link):
                 HStack {
                     Image(systemName: "globe").foregroundStyle(.secondary)

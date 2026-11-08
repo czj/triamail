@@ -21,14 +21,14 @@ import Testing
         #expect(inbox.count == MailMessage.samples.count - 1)
     }
 
-    @Test func draftsSendsAndTrashAreRecorded() async throws {
+    @Test func draftsAndSentMailsAreRecorded() async throws {
         let source = SampleMailSource()
         let mail = MailMessage.samples[0]
         #expect(try await source.createDraft(ReplyDraft(original: mail, body: "Merci !")) == "draft-1")
         #expect(await source.drafts.map(\.body) == ["Merci !"])
-        let sentID = try await source.send(raw: Data("x".utf8), from: account)
-        try await source.trash(messageID: sentID, account: account)
-        #expect(await source.trashed == [sentID])
+        try await source.send(OutgoingMail(to: "comptabilite@exemple.com", subject: "Facture", body: "Facture jointe.",
+                                           attachmentName: "facture.pdf", attachment: Data("x".utf8)), from: account)
+        #expect(await source.sent.map(\.to) == ["comptabilite@exemple.com"])
         #expect(try await source.thread(of: mail) == [mail])
     }
 

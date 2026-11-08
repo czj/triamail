@@ -5,9 +5,9 @@ import WebKit
 
 /// C5: the invoice on the right, where it will go, and one button to archive it.
 struct InvoicePane: View {
+    @Environment(AppModel.self) private var model
     let message: MailMessage
     let settings: SharedSettings
-    let source: any MailSource
     let markDone: () -> Void
 
     @State private var pdf: Data?
@@ -73,7 +73,7 @@ struct InvoicePane: View {
             let data: Data
             let fileName: String
             if let attachment = message.attachments.first(where: { $0.mimeType == "application/pdf" || $0.fileName.lowercased().hasSuffix(".pdf") }) {
-                data = try await source.attachment(attachment, of: message)
+                data = try await model.mailSource.attachment(attachment, of: message)
                 fileName = attachment.fileName
             } else {
                 // The invoice is the mail itself: print it to PDF.
@@ -100,9 +100,7 @@ struct InvoicePane: View {
             if plan.rule.sendToAccounting, let address = plan.folder.accountingEmail, !address.isEmpty {
                 let mail = OutgoingMail(to: address, subject: saved.deletingPathExtension().lastPathComponent,
                                         body: "Facture jointe.", attachmentName: saved.lastPathComponent, attachment: pdf)
-                let sentID = try await source.send(raw: mail.rfc2822(), from: message.gmailAccount)
-                // Sent and confirmed: the copy has nothing to do in Sent mail.
-                try await source.trash(messageID: sentID, account: message.gmailAccount)
+                try await model.mailSource.send(mail, from: message.gmailAccount)
                 status = "Enregistrée et envoyée à \(address)"
             }
             markDone()

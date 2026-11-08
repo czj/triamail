@@ -14,19 +14,15 @@ public protocol MailSource: Sendable {
     /// Saves a reply in the thread's drafts; returns the draft's ID.
     func createDraft(_ reply: ReplyDraft) async throws -> String
     func attachment(_ attachment: MailMessage.Attachment, of message: MailMessage) async throws -> Data
-    /// Sends a raw RFC 2822 mail from the account; returns the sent message's ID once confirmed.
-    func send(raw: Data, from account: GmailAccount) async throws -> String
-    /// Moves a message to the trash (recoverable).
-    func trash(messageID: String, account: GmailAccount) async throws
+    /// Sends a mail from the account (an invoice to accounting) and keeps no copy in Sent.
+    func send(_ mail: OutgoingMail, from account: GmailAccount) async throws
 }
 
 /// The real mailbox: each call signs in as the mail's account.
 public struct GmailSource: MailSource {
-    let authenticator: GmailAuthenticator
+    let authenticator = GmailAuthenticator()
 
-    public init(authenticator: GmailAuthenticator = GmailAuthenticator()) {
-        self.authenticator = authenticator
-    }
+    public init() {}
 
     public func inbox(account: GmailAccount) async throws -> [MailMessage] {
         try await authenticator.api(for: account).inbox(account: account.email)
@@ -48,12 +44,11 @@ public struct GmailSource: MailSource {
         try await authenticator.api(for: message.gmailAccount).attachment(messageID: message.id, attachmentID: attachment.attachmentID)
     }
 
-    public func send(raw: Data, from account: GmailAccount) async throws -> String {
-        try await authenticator.api(for: account).send(raw: raw)
-    }
-
-    public func trash(messageID: String, account: GmailAccount) async throws {
-        try await authenticator.api(for: account).trash(messageID: messageID)
+    public func send(_ mail: OutgoingMail, from account: GmailAccount) async throws {
+        let api = try await authenticator.api(for: account)
+        let sentID = try await api.send(raw: mail.rfc2822())
+        // Sent and confirmed: the copy has nothing to do in Sent mail.
+        try await api.trash(messageID: sentID)
     }
 }
 
@@ -65,8 +60,7 @@ public actor SampleMailSource: MailSource {
 
     public private(set) var messages: [MailMessage]
     public private(set) var drafts: [ReplyDraft] = []
-    public private(set) var sent: [Data] = []
-    public private(set) var trashed: [String] = []
+    public private(set) var sent: [OutgoingMail] = []
 
     public init(messages: [MailMessage] = MailMessage.samples) {
         self.messages = messages
@@ -93,13 +87,8 @@ public actor SampleMailSource: MailSource {
         SamplePDF.make(lines: [message.subject, message.senderName, attachment.fileName])
     }
 
-    public func send(raw: Data, from account: GmailAccount) -> String {
-        sent.append(raw)
-        return "sent-\(sent.count)"
-    }
-
-    public func trash(messageID: String, account: GmailAccount) {
-        trashed.append(messageID)
+    public func send(_ mail: OutgoingMail, from account: GmailAccount) {
+        sent.append(mail)
     }
 }
 

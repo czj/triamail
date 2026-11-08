@@ -44,23 +44,28 @@ final class AppModel {
         replies = ReplyModel(source: source)
         summaries = SummaryModel(source: source)
         if Self.isDemo {
+            // A throwaway preferences domain, reset at each launch: the fake account, demo settings in a temporary folder.
+            defaults = UserDefaults(suiteName: "io.github.czj.triamail.demo") ?? .standard
             let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Triamail-demo", isDirectory: true)
-            store = SettingsStore(folder: folder)
-            try? store.save(.demo(in: folder))
+            try? SettingsStore(folder: folder).save(.demo(in: folder))
+            defaults.set(folder.path, forKey: Self.settingsFolderKey)
+            defaults.set(try? JSONEncoder().encode([SampleMailSource.account]), forKey: Self.accountsKey)
         } else {
-            let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
-            store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
+            defaults = .standard
         }
+        let path = defaults.string(forKey: Self.settingsFolderKey)
+        store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
         reload()
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.flush() }
         }
-        if Self.isDemo {
-            accounts = [SampleMailSource.account]
-        } else if let data = UserDefaults.standard.data(forKey: Self.accountsKey) {
+        if let data = defaults.data(forKey: Self.accountsKey) {
             accounts = (try? JSONDecoder().decode([GmailAccount].self, from: data)) ?? []
         }
     }
+
+    /// This Mac's own preferences: the settings folder and the connected accounts.
+    private let defaults: UserDefaults
 
     /// Where the last "Ajouter un compte Google" stands: in the browser, connected, or the error.
     private(set) var signInMessage: String?
@@ -105,9 +110,7 @@ final class AppModel {
     }
 
     private func saveAccounts() {
-        // The demo's fake account never replaces the real list.
-        guard !Self.isDemo else { return }
-        UserDefaults.standard.set(try? JSONEncoder().encode(accounts), forKey: Self.accountsKey)
+        defaults.set(try? JSONEncoder().encode(accounts), forKey: Self.accountsKey)
     }
 
     var settingsFolderPath: String { store.folder.path.abbreviatingHomeDirectory }
@@ -159,7 +162,7 @@ final class AppModel {
 
     /// Points this Mac at another settings folder (this choice itself stays on this Mac).
     func useSettingsFolder(_ folder: URL) {
-        if !Self.isDemo { UserDefaults.standard.set(folder.path, forKey: Self.settingsFolderKey) }
+        defaults.set(folder.path, forKey: Self.settingsFolderKey)
         store = SettingsStore(folder: folder)
         reload()
     }
