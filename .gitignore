@@ -8,3 +8,7 @@ build/
 perso/
 *.local.*
 *.xcodeproj/
+build.log
+Triamail.dmg
+Triamail.zip
+dist/
