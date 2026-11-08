@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import TriamailKit
 
@@ -7,7 +6,7 @@ struct AccountsSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var clientID = ""
     @State private var clientSecret = ""
-    @State private var signingIn = false
+    /// Feedback on the OAuth client fields; the sign-in's own outcome is `model.signInMessage`.
     @State private var message: String?
     /// Read from the keychain on appear and after saving, not on every render.
     @State private var hasClient = false
@@ -24,14 +23,14 @@ struct AccountsSettingsView: View {
                         Button("Déconnecter") { model.removeAccount(account) }
                     }
                 }
-                Button(signingIn ? "Connexion dans le navigateur…" : "Connecter un compte Gmail…", systemImage: "plus") {
-                    signIn()
+                Button(model.signingIn ? "Connexion dans le navigateur…" : "Ajouter un compte Google…", systemImage: "plus") {
+                    Task { await model.signIn() }
                 }
-                .disabled(signingIn || !hasClient)
+                .disabled(model.signingIn || !hasClient)
             } header: {
                 Text("Comptes Gmail")
             } footer: {
-                if let message {
+                if let message = model.signInMessage {
                     Text(message).foregroundStyle(.secondary)
                 }
             }
@@ -52,8 +51,12 @@ struct AccountsSettingsView: View {
             } header: {
                 Text("Application Google (OAuth)")
             } footer: {
-                Text("Crée un identifiant « Application de bureau » dans la console Google Cloud, avec l'API Gmail activée, puis colle-le ici. Il reste dans le trousseau.")
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    OAuthClientHelp()
+                    if let message {
+                        Text(message).foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
@@ -61,23 +64,6 @@ struct AccountsSettingsView: View {
             clientID = authenticator.clientID ?? ""
             clientSecret = authenticator.clientSecret ?? ""
             hasClient = authenticator.client != nil
-        }
-    }
-
-    private func signIn() {
-        signingIn = true
-        message = nil
-        Task {
-            defer { signingIn = false }
-            do {
-                let account = try await authenticator.signIn { url in
-                    await MainActor.run { _ = NSWorkspace.shared.open(url) }
-                }
-                model.addAccount(account)
-                message = "\(account.email) est connecté."
-            } catch {
-                message = error.localizedDescription
-            }
         }
     }
 }

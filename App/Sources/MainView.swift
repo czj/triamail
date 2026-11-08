@@ -18,6 +18,7 @@ struct MainView: View {
     @AppStorage("showsSidePane") private var showsSidePane = true
 
     var body: some View {
+        @Bindable var model = model
         let selected = selectedMessage
         let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
@@ -43,10 +44,14 @@ struct MainView: View {
         .navigationTitle(mailbox.title)
         .searchable(text: $search, placement: .sidebar, prompt: "Rechercher")
         .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
+        .sheet(isPresented: $model.asksForOAuthClient) { OAuthClientSheet() }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
                     .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
+            }
+            ToolbarItem(placement: .navigation) {
+                AccountMenu()
             }
             ToolbarItem {
                 Button("Actualiser", systemImage: "arrow.clockwise") {
@@ -77,9 +82,13 @@ struct MainView: View {
             ContentUnavailableView {
                 Label("Aucun compte connecté", systemImage: "envelope.badge.shield.half.filled")
             } description: {
-                Text("Connecte un compte Gmail dans les réglages pour voir les mails à traiter.")
+                Text(model.signInMessage ?? "Connecte un compte Google pour voir les mails à traiter.")
             } actions: {
-                SettingsLink { Text("Ouvrir les réglages") }
+                Button(model.signingIn ? "Connexion dans le navigateur…" : "Ajouter un compte Google", systemImage: "plus") {
+                    model.addGoogleAccount()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.signingIn)
             }
         } else {
             let messages = visibleMessages

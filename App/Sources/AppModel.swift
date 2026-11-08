@@ -36,9 +36,38 @@ final class AppModel {
         }
     }
 
-    func addAccount(_ account: GmailAccount) {
-        if !accounts.contains(account) { accounts.append(account) }
-        saveAccounts()
+    /// "Ajouter un compte Google": opens Google's sign-in, or first asks for the OAuth client when none is saved.
+    func addGoogleAccount() {
+        if GmailAuthenticator().client == nil {
+            asksForOAuthClient = true
+        } else {
+            Task { await signIn() }
+        }
+    }
+
+    /// Shown by the main window as a sheet: the OAuth client to paste before signing in.
+    var asksForOAuthClient = false
+    private(set) var signingIn = false
+    /// The outcome of the last sign-in ("… est connecté." or the error).
+    var signInMessage: String?
+
+    /// Google's sign-in in the browser; the account is added once Google answers.
+    /// Shared by Settings > Comptes and the "Ajouter un compte Google" buttons.
+    func signIn() async {
+        guard !signingIn else { return }
+        signingIn = true
+        signInMessage = nil
+        defer { signingIn = false }
+        do {
+            let account = try await GmailAuthenticator().signIn { url in
+                await MainActor.run { _ = NSWorkspace.shared.open(url) }
+            }
+            if !accounts.contains(account) { accounts.append(account) }
+            saveAccounts()
+            signInMessage = "\(account.email) est connecté."
+        } catch {
+            signInMessage = error.localizedDescription
+        }
     }
 
     func removeAccount(_ account: GmailAccount) {
