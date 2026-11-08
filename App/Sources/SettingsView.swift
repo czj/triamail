@@ -8,7 +8,7 @@ struct SettingsView: View {
                 GeneralSettingsView()
             }
             Tab("Comptes", systemImage: "person.crop.circle") {
-                placeholder("Comptes Gmail", "La connexion à Gmail arrive dans une prochaine version.")
+                AccountsSettingsView()
             }
             Tab("Archivage", systemImage: "folder") {
                 ArchiveSettingsView()

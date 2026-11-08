@@ -6,15 +6,36 @@ import TriamailKit
 @MainActor @Observable
 final class AppModel {
     private static let settingsFolderKey = "settingsFolderPath"
+    private static let accountsKey = "gmailAccounts"
 
     private(set) var store: SettingsStore
     var settings = SharedSettings()
     var lastError: String?
+    /// Connected Gmail accounts on this Mac (their tokens are in this Mac's keychain).
+    private(set) var accounts: [GmailAccount] = []
 
     init() {
         let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
         store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
         reload()
+        if let data = UserDefaults.standard.data(forKey: Self.accountsKey) {
+            accounts = (try? JSONDecoder().decode([GmailAccount].self, from: data)) ?? []
+        }
+    }
+
+    func addAccount(_ account: GmailAccount) {
+        if !accounts.contains(account) { accounts.append(account) }
+        saveAccounts()
+    }
+
+    func removeAccount(_ account: GmailAccount) {
+        try? GmailAuthenticator().signOut(account)
+        accounts.removeAll { $0 == account }
+        saveAccounts()
+    }
+
+    private func saveAccounts() {
+        UserDefaults.standard.set(try? JSONEncoder().encode(accounts), forKey: Self.accountsKey)
     }
 
     var settingsFolderPath: String { store.folder.path.abbreviatingHomeDirectory }

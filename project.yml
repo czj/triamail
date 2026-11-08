@@ -36,6 +36,8 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         ENABLE_HARDENED_RUNTIME: YES
+        # Pas de bac à sable : l'app écrit dans les dossiers choisis et écoute sur 127.0.0.1 pour OAuth.
+        ENABLE_APP_SANDBOX: NO
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
