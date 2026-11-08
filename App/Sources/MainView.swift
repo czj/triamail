@@ -161,7 +161,7 @@ struct MessageDetailView: View {
         }
         .id(message.id)
         .safeAreaInset(edge: .top) { SummaryBanner(message: message, summaries: summaries) }
-        .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies) }
+        .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies).id(message.id) }
         .sheet(isPresented: $replying) { ReplySheet(message: message, replies: replies) }
         .safeAreaInset(edge: .bottom) {
             if let reminderStatus {
