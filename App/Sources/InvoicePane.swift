@@ -11,7 +11,6 @@ struct InvoicePane: View {
 
     @State private var pdf: Data?
     @State private var plan: ArchivePlan?
-    @State private var fileName = ""
     @State private var status: String?
     @State private var working = false
     /// Set once the PDF is in its folder: a retry after a failed send only retries the send.
@@ -74,6 +73,7 @@ struct InvoicePane: View {
         do {
             let api = try await authenticator.api(for: message.gmailAccount)
             let data: Data
+            let fileName: String
             if let attachment = message.attachments.first(where: { $0.mimeType == "application/pdf" || $0.fileName.lowercased().hasSuffix(".pdf") }) {
                 data = try await api.attachment(messageID: message.id, attachmentID: attachment.attachmentID)
                 fileName = attachment.fileName

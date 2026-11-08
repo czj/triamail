@@ -9,6 +9,8 @@ struct AccountsSettingsView: View {
     @State private var clientSecret = ""
     @State private var signingIn = false
     @State private var message: String?
+    /// Read from the keychain on appear and after saving, not on every render.
+    @State private var hasClient = false
 
     private let authenticator = GmailAuthenticator()
 
@@ -25,7 +27,7 @@ struct AccountsSettingsView: View {
                 Button(signingIn ? "Connexion dans le navigateur…" : "Connecter un compte Gmail…", systemImage: "plus") {
                     signIn()
                 }
-                .disabled(signingIn || authenticator.client == nil)
+                .disabled(signingIn || !hasClient)
             } header: {
                 Text("Comptes Gmail")
             } footer: {
@@ -40,6 +42,7 @@ struct AccountsSettingsView: View {
                 Button("Enregistrer dans le trousseau") {
                     do {
                         try authenticator.saveClient(id: clientID, secret: clientSecret)
+                        hasClient = true
                         message = "Identifiant enregistré dans le trousseau de ce Mac."
                     } catch {
                         message = error.localizedDescription
@@ -57,6 +60,7 @@ struct AccountsSettingsView: View {
         .onAppear {
             clientID = authenticator.clientID ?? ""
             clientSecret = authenticator.clientSecret ?? ""
+            hasClient = authenticator.client != nil
         }
     }
 
