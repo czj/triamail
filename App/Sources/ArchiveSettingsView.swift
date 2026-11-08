@@ -56,7 +56,14 @@ struct ArchiveSettingsView: View {
                     Label(path, systemImage: "folder")
                 }
                 .onDelete { model.settings.tidySourcePaths.remove(atOffsets: $0) }
+                // A second file importer must sit on another view than the form's.
                 Button("Ajouter un dossier à ranger…", systemImage: "plus") { addingTidySource = true }
+                    .fileImporter(isPresented: $addingTidySource, allowedContentTypes: [.folder]) { result in
+                        if case let .success(url) = result {
+                            let path = url.path.abbreviatingHomeDirectory
+                            if !model.settings.tidySourcePaths.contains(path) { model.settings.tidySourcePaths.append(path) }
+                        }
+                    }
             } header: {
                 Text("Dossiers à ranger")
             } footer: {
@@ -78,12 +85,6 @@ struct ArchiveSettingsView: View {
                 model.settings.archiveFolders.append(
                     ArchiveFolder(name: url.lastPathComponent, path: url.path.abbreviatingHomeDirectory)
                 )
-            }
-        }
-        .fileImporter(isPresented: $addingTidySource, allowedContentTypes: [.folder]) { result in
-            if case let .success(url) = result {
-                let path = url.path.abbreviatingHomeDirectory
-                if !model.settings.tidySourcePaths.contains(path) { model.settings.tidySourcePaths.append(path) }
             }
         }
         .sheet(item: $editedRule) { rule in
