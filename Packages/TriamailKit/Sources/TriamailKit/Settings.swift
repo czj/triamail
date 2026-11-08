@@ -4,6 +4,7 @@ import Foundation
 /// Secrets never go here: they live in the keychain.
 public struct SharedSettings: Codable, Equatable, Sendable {
     public static let currentVersion = 1
+    public static let defaultTerminal = "com.apple.Terminal"
 
     public var version: Int
     public var archiveFolders: [ArchiveFolder]
@@ -12,6 +13,12 @@ public struct SharedSettings: Codable, Equatable, Sendable {
     public var remindersListName: String?
     public var profile: Profile
     public var aiProvider: AIProvider
+    /// Where the repositories are cloned ("~/code"): "owner/repo" is looked for there by name.
+    public var codeRoot: String?
+    /// Exceptions: "owner/repo" → "~/somewhere/else".
+    public var repositoryFolders: [String: String]
+    /// The terminal app that runs Claude Code.
+    public var terminalBundleID: String
     public var mistralModel: String
     /// Folders the "Tidy" button goes through (Downloads, Desktop, scans…), as "~/…" paths.
     public var tidySourcePaths: [String]
@@ -24,6 +31,9 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         self.tidySourcePaths = []
         self.profile = Profile()
         self.aiProvider = .appleLocal
+        self.codeRoot = nil
+        self.repositoryFolders = [:]
+        self.terminalBundleID = Self.defaultTerminal
         self.mistralModel = MistralClient.defaultModel
     }
 
@@ -37,6 +47,9 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         tidySourcePaths = try container.decodeIfPresent([String].self, forKey: .tidySourcePaths) ?? []
         profile = try container.decodeIfPresent(Profile.self, forKey: .profile) ?? Profile()
         aiProvider = try container.decodeIfPresent(AIProvider.self, forKey: .aiProvider) ?? .appleLocal
+        codeRoot = try container.decodeIfPresent(String.self, forKey: .codeRoot)
+        repositoryFolders = try container.decodeIfPresent([String: String].self, forKey: .repositoryFolders) ?? [:]
+        terminalBundleID = try container.decodeIfPresent(String.self, forKey: .terminalBundleID) ?? Self.defaultTerminal
         mistralModel = try container.decodeIfPresent(String.self, forKey: .mistralModel) ?? MistralClient.defaultModel
     }
 }
