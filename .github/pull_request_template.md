@@ -1,9 +1,9 @@
-## What it changes
+## Ce que ça change
 
 
-## How to check it
+## Comment le vérifier
 
 
-## Checklist
-- [ ] No personal data or secrets in the diff (see AGENTS.md)
-- [ ] Title follows Conventional Commits (`feat: …`, `fix: …`)
+## Contrôle
+- [ ] Aucune info personnelle ni secret dans le diff (voir AGENTS.md)
+- [ ] Titre au format Conventional Commits (`feat: …`, `fix: …`)

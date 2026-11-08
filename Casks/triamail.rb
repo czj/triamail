@@ -8,7 +8,7 @@ cask "triamail" do
 
   url "https://github.com/czj/triamail/releases/latest/download/Triamail.dmg"
   name "Triamail"
-  desc "Mail client for triaging email and acting on it"
+  desc "Client mail pour trier les mails et agir dessus"
   homepage "https://github.com/czj/triamail"
 
   auto_updates true

@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
-  # A draft PR runs nothing: marking it ready for review starts CI.
+  # Une PR en brouillon ne lance rien : la passer en « prête » démarre la CI.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   no-personal-data:
-    name: No personal data or secrets
+    name: Aucune info personnelle ni secret
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -26,20 +26,20 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0 # gitleaks reads the whole history
+          fetch-depth: 0 # gitleaks lit tout l'historique
       - name: Secrets (gitleaks)
         run: |
           docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" \
             ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact --verbose /repo
-      - name: Phone numbers and email addresses
+      - name: Téléphones et adresses mail
         run: |
-          # French phone numbers and email addresses, except example domains and public technical addresses (GitHub…).
+          # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques publiques (GitHub…).
           if git grep -nIE '(\+33|0033|\b0)[ .]?[1-9]([ .]?[0-9]{2}){4}' -- . ':!*.lock' \
              | grep -vE '\+33 1 23 45 67 89|01 23 45 67 89'; then
-            echo "::error::Phone number found: see AGENTS.md"; exit 1; fi
+            echo "::error::Numéro de téléphone trouvé : voir AGENTS.md"; exit 1; fi
           if git grep -nIE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- . \
              | grep -viE '@([a-z0-9-]+\.)*(exemple|example)\.(com|org|fr)|@anthropic\.com|notifications@github\.com|@([a-z0-9-]+\.)*noreply\.github\.com'; then
-            echo "::error::Email address found: see AGENTS.md"; exit 1; fi
+            echo "::error::Adresse mail trouvée : voir AGENTS.md"; exit 1; fi
 
   build:
     name: Build macOS
@@ -53,15 +53,15 @@ jobs:
           persist-credentials: false
       - name: Versions
         run: xcodebuild -version && swift --version
-      - name: TriamailKit tests
+      - name: Tests de TriamailKit
         run: swift test --package-path Packages/TriamailKit
-      - name: Generate the Xcode project
+      - name: Générer le projet Xcode
         run: brew install xcodegen && xcodegen generate
-      - name: Build the app
+      - name: Compiler l'app
         run: |
           if ! xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Debug \
                -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build > build.log 2>&1; then
-            # Compiler errors as annotations on the diff, then the end of the log.
+            # Les erreurs du compilateur, en annotations sur le diff, puis la fin du journal.
             grep -E "^/.+:[0-9]+:[0-9]+: error: " build.log | sort -u | while IFS= read -r line; do
               file=${line%%:*}; rest=${line#*:}; row=${rest%%:*}; rest=${rest#*:}; col=${rest%%:*}; msg=${rest#*: error: }
               echo "::error file=${file#$GITHUB_WORKSPACE/},line=$row,col=$col::$msg"
@@ -69,10 +69,10 @@ jobs:
             tail -25 build.log
             exit 1
           fi
-          grep -cE ": warning: " build.log | xargs echo "Warnings:"
+          grep -cE ": warning: " build.log | xargs echo "Avertissements :"
 
-  # The only check required by main's protection rule: jobs above can be added or renamed
-  # without touching the rule. Every new job must be listed in needs.
+  # Le seul contrôle exigé par la règle de protection de main : on peut ajouter ou renommer
+  # des jobs au-dessus sans toucher à la règle. Tout nouveau job doit figurer dans needs.
   passed:
     name: CI passed
     if: ${{ always() && !github.event.pull_request.draft }}
@@ -80,7 +80,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: All jobs succeeded
+      - name: Tous les jobs ont réussi
         run: echo "$NEEDS" | jq --exit-status 'all(.[]; .result == "success")'
         env:
           NEEDS: ${{ toJSON(needs) }}

@@ -4,7 +4,7 @@ DerivedData/
 *.xcuserstate
 build/
 .build/
-# Personal data: never in the repository
+# Données personnelles : jamais dans le dépôt
 perso/
 *.local.*
 *.xcodeproj/

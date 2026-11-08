@@ -29,7 +29,7 @@ xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Release \
   || { grep -E ": error: " build.log | sort -u; tail -40 build.log; exit 1; }
 
 APP=build/Build/Products/Release/Triamail.app
-[ -d "$APP" ] || { echo "Triamail.app not found"; exit 1; }
+[ -d "$APP" ] || { echo "Triamail.app introuvable"; exit 1; }
 
 if [ -n "${DEVELOPER_ID:-}" ]; then
   # Re-sign inside out (Sparkle's nested helpers first), hardened runtime and timestamp, as notarization requires.

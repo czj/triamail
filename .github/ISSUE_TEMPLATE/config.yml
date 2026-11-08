@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Report a security vulnerability
+  - name: Signaler une faille de sécurité
     url: https://github.com/czj/triamail/security/advisories/new
-    about: Privately, never in a public issue.
+    about: En privé, jamais dans une issue publique.
