@@ -35,7 +35,9 @@ public struct FolderTidier: Sendable {
     func datingMoves(fileManager: FileManager) -> [TidyMove] {
         planner.folders.filter { $0.datePrefix || $0.subfolder != .none }.flatMap { folder in
             Self.files(in: folder.url, fileManager: fileManager).map { file in
-                let document = Self.document(for: file, fileManager: fileManager)
+                var document = Self.document(for: file, fileManager: fileManager)
+                // A name that already starts with a date says which year/month it belongs to.
+                if let date = Self.date(fromName: document.fileName, calendar: planner.calendar) { document.date = date }
                 let rule = ArchiveRule(fileNamePattern: ".", folderID: folder.id)
                 return TidyMove(source: file, plan: ArchivePlan(
                     rule: rule,
@@ -64,6 +66,13 @@ public struct FolderTidier: Sendable {
         return contents
             .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    /// "2025-12-01 - Facture.pdf" → 1 December 2025.
+    static func date(fromName name: String, calendar: Calendar) -> Date? {
+        guard let match = name.prefixMatch(of: #/(\d{4})-(\d{2})-(\d{2}) - /#),
+              let year = Int(match.1), let month = Int(match.2), let day = Int(match.3) else { return nil }
+        return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
     }
 
     /// The file's creation date stands for the mail's date; its text is read only if a rule asks.

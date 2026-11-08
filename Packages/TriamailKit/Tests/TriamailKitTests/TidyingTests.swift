@@ -42,3 +42,21 @@ import Testing
         #expect(settings.tidySourcePaths.isEmpty)
     }
 }
+
+@Suite struct TidyingDateTests {
+    @Test func datedFileGoesToTheYearOfItsName() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("triamail-tidy-date-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: root.appendingPathComponent("2025-12-01 - Facture.pdf"))
+        let folder = ArchiveFolder(name: "Achats", path: root.path, datePrefix: true, subfolder: .year)
+        let moves = FolderTidier(planner: ArchivePlanner(folders: [folder], rules: []), sourceFolders: []).plan()
+        #expect(moves.count == 1)
+        #expect(moves.first?.plan.directory.lastPathComponent == "2025")
+        #expect(moves.first?.plan.fileName == "2025-12-01 - Facture.pdf")
+    }
+
+    @Test func nameWithoutDateHasNone() {
+        #expect(FolderTidier.date(fromName: "Facture.pdf", calendar: .current) == nil)
+    }
+}
