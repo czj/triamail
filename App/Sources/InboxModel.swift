@@ -27,7 +27,9 @@ final class InboxModel {
                     }
                 }
             }
-            return await group.reduce(into: []) { $0.append($1) }
+            var collected: [Result<[MailMessage], AccountError>] = []
+            for await result in group { collected.append(result) }
+            return collected
         }
         var all: [MailMessage] = []
         var failures: [String] = []
