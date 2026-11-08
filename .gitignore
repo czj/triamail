@@ -7,3 +7,4 @@ build/
 # Données personnelles : jamais dans le dépôt
 perso/
 *.local.*
+*.xcodeproj/
