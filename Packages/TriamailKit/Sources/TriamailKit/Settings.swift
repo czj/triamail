@@ -10,12 +10,15 @@ public struct SharedSettings: Codable, Equatable, Sendable {
     public var archiveRules: [ArchiveRule]
     /// The Reminders list for C4; nil means the default list.
     public var remindersListName: String?
+    /// Folders the "Tidy" button goes through (Downloads, Desktop, scans…), as "~/…" paths.
+    public var tidySourcePaths: [String]
 
     public init(archiveFolders: [ArchiveFolder] = [], archiveRules: [ArchiveRule] = [], remindersListName: String? = nil) {
         self.version = Self.currentVersion
         self.archiveFolders = archiveFolders
         self.archiveRules = archiveRules
         self.remindersListName = remindersListName
+        self.tidySourcePaths = []
     }
 
     // Missing keys fall back to defaults, so older files keep loading as settings grow.
@@ -25,6 +28,7 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         archiveFolders = try container.decodeIfPresent([ArchiveFolder].self, forKey: .archiveFolders) ?? []
         archiveRules = try container.decodeIfPresent([ArchiveRule].self, forKey: .archiveRules) ?? []
         remindersListName = try container.decodeIfPresent(String.self, forKey: .remindersListName)
+        tidySourcePaths = try container.decodeIfPresent([String].self, forKey: .tidySourcePaths) ?? []
     }
 }
 
@@ -101,6 +105,11 @@ public struct ReplyTemplate: Identifiable, Equatable, Sendable {
 }
 
 extension String {
+    /// "~/Downloads" → the folder's URL on this Mac.
+    public var expandingTildeURL: URL {
+        URL(fileURLWithPath: (self as NSString).expandingTildeInPath, isDirectory: true)
+    }
+
     /// "/Users/jeanne/Documents" → "~/Documents", so paths stay valid on another Mac with the same layout.
     public var abbreviatingHomeDirectory: String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path

@@ -9,6 +9,7 @@ struct MainView: View {
     @State private var translations = TranslationModel()
     @State private var mailbox: Mailbox? = .toTriage
     @State private var selection: MailMessage.ID?
+    @State private var tidying = false
 
     var body: some View {
         NavigationSplitView {
@@ -31,7 +32,12 @@ struct MainView: View {
             }
         }
         .navigationTitle(mailbox?.title ?? "Triamail")
+        .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
         .toolbar {
+            ToolbarItem(placement: .navigation) {
+                Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
+                    .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
+            }
             ToolbarItem {
                 Button("Actualiser", systemImage: "arrow.clockwise") {
                     Task { await inbox.refresh(accounts: model.accounts) }

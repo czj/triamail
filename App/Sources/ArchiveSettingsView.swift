@@ -5,6 +5,7 @@ import TriamailKit
 struct ArchiveSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var addingFolder = false
+    @State private var addingTidySource = false
     @State private var editedRule: ArchiveRule?
     @State private var sampleFileName = ""
     @State private var sampleSender = ""
@@ -47,6 +48,26 @@ struct ArchiveSettingsView: View {
                 Text("Règles")
             } footer: {
                 Text("La première règle qui correspond l'emporte. Glisse pour réordonner, double-clic pour modifier.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                ForEach(model.settings.tidySourcePaths, id: \.self) { path in
+                    Label(path, systemImage: "folder")
+                }
+                .onDelete { model.settings.tidySourcePaths.remove(atOffsets: $0) }
+                // A second file importer must sit on another view than the form's.
+                Button("Ajouter un dossier à ranger…", systemImage: "plus") { addingTidySource = true }
+                    .fileImporter(isPresented: $addingTidySource, allowedContentTypes: [.folder]) { result in
+                        if case let .success(url) = result {
+                            let path = url.path.abbreviatingHomeDirectory
+                            if !model.settings.tidySourcePaths.contains(path) { model.settings.tidySourcePaths.append(path) }
+                        }
+                    }
+            } header: {
+                Text("Dossiers à ranger")
+            } footer: {
+                Text("Le bouton « Ranger » y applique les mêmes règles (Téléchargements, Bureau, scans…), après t'avoir montré ce qui va bouger.")
                     .foregroundStyle(.secondary)
             }
 
