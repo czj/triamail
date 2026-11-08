@@ -168,15 +168,26 @@ extension GmailAPI {
             URLQueryItem(name: "labelIds", value: "INBOX"),
             URLQueryItem(name: "maxResults", value: String(limit)),
         ], as: List.self)
+        let ids = (list.messages ?? []).map(\.id)
         return try await withThrowingTaskGroup(of: MailMessage.self) { group in
-            for ref in list.messages ?? [] {
-                group.addTask { try await message(id: ref.id, account: account) }
+            // At most `parallelFetches` requests at once: Gmail answers 429 to bursts.
+            var pending = ids.makeIterator()
+            for _ in 0..<Self.parallelFetches {
+                guard let id = pending.next() else { break }
+                group.addTask { try await message(id: id, account: account) }
             }
             var messages: [MailMessage] = []
-            for try await message in group { messages.append(message) }
+            for try await fetched in group {
+                messages.append(fetched)
+                if let id = pending.next() {
+                    group.addTask { try await self.message(id: id, account: account) }
+                }
+            }
             return messages.sorted { $0.date > $1.date }
         }
     }
+
+    static let parallelFetches = 8
 
     public func message(id: String, account: String) async throws -> MailMessage {
         try await get("messages/\(id)", query: [URLQueryItem(name: "format", value: "full")], as: GmailMessageResource.self)
