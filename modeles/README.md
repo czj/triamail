@@ -1,29 +1,29 @@
-# Modèles de réponse
+# Reply templates
 
-Modèles livrés avec Triamail. Ils ne contiennent aucune information personnelle : l'app remplace les variables `{profil.…}` par ce que l'utilisateur saisit dans ses préférences.
+Templates shipped with Triamail. They contain no personal information: the app replaces the `{profil.…}` variables with what the user enters in their preferences. The templates themselves are user-facing content and stay in French.
 
-| Fichier | Modèle | Champ demandé avant de rédiger |
+| File | Template | Field asked before drafting |
 |---|---|---|
-| `repondre.md` | Répondre | « Intention et ton » |
-| `renvoyer-vers-support.md` | Renvoyer vers le support | aucun |
-| `dites-m-en-plus.md` | Dites-m'en plus | aucun |
-| `loufoque.md` | Loufoque (réponse aux spams) | « Guidance » |
-| `oubliez-moi.md` | Oubliez-moi | aucun |
+| `repondre.md` | Répondre (Reply) | « Intention et ton » (intent and tone) |
+| `renvoyer-vers-support.md` | Renvoyer vers le support (Redirect to support) | none |
+| `dites-m-en-plus.md` | Dites-m'en plus (Tell me more) | none |
+| `loufoque.md` | Loufoque (Zany: reply to spam) | « Guidance » |
+| `oubliez-moi.md` | Oubliez-moi (Forget me) | none |
 
 ## Variables
 
-Remplies par l'app :
-- `{selection}` : le fil complet du mail.
-- `{argument name="…"}` : un champ demandé avant de rédiger.
+Filled in by the app:
+- `{selection}`: the full email thread.
+- `{argument name="…"}`: a field asked before drafting.
 
-Remplies depuis les préférences (profil) :
+Filled in from the preferences (profile):
 - `{profil.prenom}`, `{profil.nom_complet}`, `{profil.fonction}`
-- `{profil.entreprise}` : l'entreprise principale
-- `{profil.entreprises}` : la description des entreprises (noms commerciaux, raison sociale, activité)
+- `{profil.entreprise}`: the main company
+- `{profil.entreprises}`: the description of the companies (trade names, legal name, business)
 - `{profil.telephone}`, `{profil.site_web}`, `{profil.url_support}`
 
-La syntaxe `{selection}` / `{argument name="…"}` reprend celle des AI Commands de Raycast, pour pouvoir importer des prompts existants.
+The `{selection}` / `{argument name="…"}` syntax follows Raycast's AI Commands, so existing prompts can be imported.
 
-## À faire
-- Ranger la partie commune (voix, signature, entreprises) dans un seul « profil de voix » : `repondre.md` et `renvoyer-vers-support.md` la répètent presque mot pour mot.
-- Traduire `dites-m-en-plus.md` en français ; la réponse reste dans la langue du mail reçu.
+## To do
+- Move the shared part (voice, signature, companies) into a single "voice profile": `repondre.md` and `renvoyer-vers-support.md` repeat it almost word for word.
+- Translate `dites-m-en-plus.md` into French; the reply stays in the language of the received email.
