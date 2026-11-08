@@ -1,0 +1,9 @@
+.DS_Store
+xcuserdata/
+DerivedData/
+*.xcuserstate
+build/
+.build/
+# Données personnelles : jamais dans le dépôt
+perso/
+*.local.*
