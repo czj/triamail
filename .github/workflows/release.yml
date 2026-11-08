@@ -26,7 +26,7 @@ jobs:
     if: needs.release-please.outputs.created == 'true'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Construire l'app
         run: |
           if ! ls *.xcodeproj >/dev/null 2>&1; then

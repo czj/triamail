@@ -7,13 +7,34 @@
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "changelog-sections": [
-        { "type": "feat", "section": "Nouveautés" },
-        { "type": "fix", "section": "Corrections" },
-        { "type": "perf", "section": "Performances" },
-        { "type": "docs", "section": "Documentation" },
-        { "type": "refactor", "section": "Refonte", "hidden": true },
-        { "type": "chore", "section": "Maintenance", "hidden": true }
-      ]
+        {
+          "type": "feat",
+          "section": "Nouveautés"
+        },
+        {
+          "type": "fix",
+          "section": "Corrections"
+        },
+        {
+          "type": "perf",
+          "section": "Performances"
+        },
+        {
+          "type": "docs",
+          "section": "Documentation"
+        },
+        {
+          "type": "refactor",
+          "section": "Refonte",
+          "hidden": true
+        },
+        {
+          "type": "chore",
+          "section": "Maintenance",
+          "hidden": true
+        }
+      ],
+      "initial-version": "0.1.0"
     }
   }
 }
