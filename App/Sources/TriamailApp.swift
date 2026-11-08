@@ -4,6 +4,10 @@ import SwiftUI
 struct TriamailApp: App {
     @State private var model = AppModel()
 
+    init() {
+        _ = Updater.shared
+    }
+
     var body: some Scene {
         WindowGroup {
             MainView()
@@ -11,6 +15,7 @@ struct TriamailApp: App {
                 .environment(model)
         }
         .windowToolbarStyle(.unified)
+        .commands { UpdateCommands() }
 
         Settings {
             SettingsView()

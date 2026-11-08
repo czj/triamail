@@ -32,18 +32,47 @@ jobs:
     if: needs.release-please.outputs.created == 'true'
     runs-on: macos-26
     timeout-minutes: 30
+    env:
+      # Un secret ne peut pas servir dans un `if` : on n'expose que sa présence.
+      HAS_SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Construire l'app
+        shell: bash
+        env:
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+          TAG: ${{ needs.release-please.outputs.tag }}
         run: |
           brew install xcodegen && xcodegen generate
           xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Release \
-            -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+            -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" build
+          mkdir -p dist
           APP=$(find build/Build/Products/Release -maxdepth 1 -name 'Triamail.app' | head -1)
-          ditto -c -k --keepParent "$APP" Triamail.zip
-          gh release upload "${{ needs.release-please.outputs.tag }}" Triamail.zip --clobber
+          ditto -c -k --keepParent "$APP" "dist/Triamail-${TAG#v}.zip"
+          cp "dist/Triamail-${TAG#v}.zip" Triamail.zip
+      # Le flux Sparkle, signé avec la clé privée (secret du dépôt). Sans secret : pas de flux, l'app reste sans mises à jour.
+      - name: Flux de mises à jour (Sparkle)
+        if: ${{ env.HAS_SPARKLE_KEY == 'true' }}
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+          SPARKLE_VERSION: 2.9.6
+        run: |
+          curl -sSfL --retry 4 -o sparkle.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir sparkle && tar -xf sparkle.tar.xz -C sparkle
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/ed25519"
+          sparkle/bin/generate_appcast --ed-key-file "$RUNNER_TEMP/ed25519" \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/" dist
+          rm "$RUNNER_TEMP/ed25519"
+      - name: Joindre à la release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: |
+          gh release upload "$TAG" Triamail.zip dist/*.zip --clobber
+          if [ -f dist/appcast.xml ]; then gh release upload "$TAG" dist/appcast.xml --clobber; fi

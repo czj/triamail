@@ -9,6 +9,9 @@ options:
 packages:
   TriamailKit:
     path: Packages/TriamailKit
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.0
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -27,11 +30,15 @@ targets:
         buildPhase: resources
     dependencies:
       - package: TriamailKit
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.czj.triamail
         PRODUCT_NAME: Triamail
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: App/Info.plist
+        # Vide en local : Sparkle reste alors éteint. La release la fournit (variable du dépôt).
+        SPARKLE_PUBLIC_KEY: ""
         INFOPLIST_KEY_CFBundleDisplayName: Triamail
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Triamail crée des rappels pour les mails à suivre (J+1, J+3, J+7 ou une date)."
