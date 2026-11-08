@@ -48,10 +48,14 @@ jobs:
         run: |
           brew install xcodegen && xcodegen generate
           xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Release \
-            -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            -destination 'platform=macOS' -derivedDataPath build \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
             SPARKLE_PUBLIC_KEY="$SPARKLE_PUBLIC_KEY" build
           mkdir -p dist
           APP=$(find build/Build/Products/Release -maxdepth 1 -name 'Triamail.app' | head -1)
+          # Signature ad hoc (sans abonnement Apple) : macOS propose « Ouvrir » au lieu de dire l'app endommagée.
+          codesign --verify --deep "$APP"
           ditto -c -k --keepParent "$APP" "dist/Triamail-${TAG#v}.zip"
           cp "dist/Triamail-${TAG#v}.zip" Triamail.zip
       # Le flux Sparkle, signé avec la clé privée (secret du dépôt). Sans secret : pas de flux, l'app reste sans mises à jour.
