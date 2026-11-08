@@ -47,7 +47,7 @@ jobs:
           persist-credentials: false
       - name: Version
         run: |
-          if [ -n "$TAG" ]; then VERSION=${TAG#v}; else
+          if [ -n "$TAG" ]; then VERSION=${TAG##*v}; else
             VERSION=$(sed -nE 's/.*MARKETING_VERSION: "([^"]+)".*/\1/p' project.yml); fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       # Facultatif : avec un certificat « Developer ID Application » (abonnement Apple Developer),
@@ -100,7 +100,7 @@ jobs:
           name: Triamail-${{ env.VERSION }}
           path: Triamail.dmg
           retention-days: 7
-      - name: Joindre à la release
+      - name: Joindre à la release et la publier
         if: ${{ env.TAG != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -114,4 +114,5 @@ jobs:
             printf -- '- **Homebrew** : `brew tap czj/triamail https://github.com/czj/triamail && brew install --cask triamail`\n'
             printf -- '- **À la main** : ouvrir `Triamail.dmg` et glisser Triamail dans Applications.\n'
           } > notes.md
-          gh release edit "$TAG" --notes-file notes.md
+          # Release immuable : tout est joint au brouillon, puis on publie (plus rien ne bouge ensuite).
+          gh release edit "$TAG" --notes-file notes.md --draft=false --latest
