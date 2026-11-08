@@ -67,15 +67,47 @@ public struct GmailAuthenticator: Sendable {
         }
     }
 
-    /// A fresh access token for the account (valid about an hour).
+    /// An access token for the account: the cached one while it is valid (about an hour), else a fresh one.
     public func accessToken(for account: GmailAccount) async throws -> String {
-        guard let client else { throw OAuthFailure.server("identifiant client OAuth manquant") }
-        guard let refreshToken = try Keychain.get(account.refreshTokenKey) else { throw OAuthFailure.noRefreshToken }
-        return try await client.refresh(refreshToken: refreshToken).accessToken
+        try await AccessTokenCache.shared.token(for: account.email) {
+            guard let client else { throw OAuthFailure.server("identifiant client OAuth manquant") }
+            guard let refreshToken = try Keychain.get(account.refreshTokenKey) else { throw OAuthFailure.noRefreshToken }
+            return try await client.refresh(refreshToken: refreshToken)
+        }
     }
 
-    public func signOut(_ account: GmailAccount) throws {
+    /// The Gmail API, signed in as the account.
+    public func api(for account: GmailAccount) async throws -> GmailAPI {
+        GmailAPI(accessToken: try await accessToken(for: account))
+    }
+
+    public func signOut(_ account: GmailAccount) async throws {
         try Keychain.delete(account.refreshTokenKey)
+        await AccessTokenCache.shared.forget(account.email)
+    }
+}
+
+/// Access tokens last about an hour: one refresh per account and per hour, not one per click.
+/// Callers asking at the same time share the same refresh.
+actor AccessTokenCache {
+    static let shared = AccessTokenCache()
+
+    private var tokens: [String: (value: String, expires: Date)] = [:]
+    private var refreshing: [String: Task<TokenResponse, Error>] = [:]
+
+    func token(for key: String, refresh: @escaping @Sendable () async throws -> TokenResponse) async throws -> String {
+        if let token = tokens[key], token.expires > .now { return token.value }
+        let task = refreshing[key] ?? Task { try await refresh() }
+        refreshing[key] = task
+        defer { refreshing[key] = nil }
+        let response = try await task.value
+        // A minute of margin, so a token never expires mid-request.
+        tokens[key] = (response.accessToken, .now.addingTimeInterval(TimeInterval(max(response.expiresIn - 60, 0))))
+        return response.accessToken
+    }
+
+    func forget(_ key: String) {
+        tokens[key] = nil
     }
 }
 
@@ -107,4 +139,9 @@ public struct GmailAPI: Sendable {
         }
         return try JSONDecoder().decode(T.self, from: data)
     }
+}
+
+extension MailMessage {
+    /// The connected account that received this mail.
+    public var gmailAccount: GmailAccount { GmailAccount(email: account) }
 }

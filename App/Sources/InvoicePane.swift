@@ -72,8 +72,7 @@ struct InvoicePane: View {
         saved = nil
         status = nil
         do {
-            let token = try await authenticator.accessToken(for: GmailAccount(email: message.account))
-            let api = GmailAPI(accessToken: token)
+            let api = try await authenticator.api(for: message.gmailAccount)
             let data: Data
             if let attachment = message.attachments.first(where: { $0.mimeType == "application/pdf" || $0.fileName.lowercased().hasSuffix(".pdf") }) {
                 data = try await api.attachment(messageID: message.id, attachmentID: attachment.attachmentID)
@@ -101,8 +100,7 @@ struct InvoicePane: View {
             self.saved = saved
             status = "Enregistrée : \(saved.lastPathComponent)"
             if plan.rule.sendToAccounting, let address = plan.folder.accountingEmail, !address.isEmpty {
-                let token = try await authenticator.accessToken(for: GmailAccount(email: message.account))
-                let api = GmailAPI(accessToken: token)
+                let api = try await authenticator.api(for: message.gmailAccount)
                 let mail = OutgoingMail(to: address, subject: saved.deletingPathExtension().lastPathComponent,
                                         body: "Facture jointe.", attachmentName: saved.lastPathComponent, attachment: pdf)
                 let sentID = try await api.send(raw: mail.rfc2822())

@@ -31,7 +31,7 @@ final class AppModel {
     }
 
     func removeAccount(_ account: GmailAccount) {
-        try? GmailAuthenticator().signOut(account)
+        Task { try? await GmailAuthenticator().signOut(account) }
         accounts.removeAll { $0 == account }
         saveAccounts()
     }
