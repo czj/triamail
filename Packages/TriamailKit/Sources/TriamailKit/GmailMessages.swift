@@ -48,7 +48,7 @@ public struct MailMessage: Identifiable, Hashable, Sendable {
     }
 }
 
-/// The lists in the sidebar.
+/// The filters on top of the mail list.
 public enum Mailbox: String, CaseIterable, Identifiable, Sendable {
     case toTriage, github, invoices, direct
 

@@ -2,7 +2,7 @@
 
 A macOS mail client for triaging email and acting on it, without leaving the list:
 
-- open a notification's page (GitHub…) in a right-hand panel;
+- three panes: one long mail list filtered by category (all, GitHub, invoices, for me; ⌘1…⌘4), the mail, and on the right the notification's page (GitHub…) or the invoice PDF (⌥⌘0 to hide it);
 - launch a Claude Code session on the linked repository;
 - draft an AI reply from a template, saved as a draft;
 - create a reminder (D+1, D+3, D+7 or a chosen date) in the Reminders app;
