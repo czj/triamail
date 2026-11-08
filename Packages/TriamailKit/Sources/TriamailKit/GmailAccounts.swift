@@ -41,13 +41,30 @@ public struct GmailAuthenticator: Sendable {
         let pkce = PKCE()
         let state = PKCE.randomVerifier()
         await open(client.authorizationURL(redirectURI: redirectURI, pkce: pkce, state: state))
-        let code = try await receiver.callback().authorizationCode(expectedState: state)
+        let code = try await Self.callback(from: receiver, timeout: .seconds(300)).authorizationCode(expectedState: state)
         let tokens = try await client.exchange(code: code, redirectURI: redirectURI, pkce: pkce)
         guard let refreshToken = tokens.refreshToken else { throw OAuthFailure.noRefreshToken }
         let email = try await GmailAPI(accessToken: tokens.accessToken).profileEmail()
         let account = GmailAccount(email: email)
         try Keychain.set(refreshToken, for: account.refreshTokenKey)
         return account
+    }
+
+    /// The browser's answer, or a timeout when the user gave up (closed the tab, wrong account…).
+    static func callback(from receiver: LoopbackReceiver, timeout: Duration) async throws -> OAuthCallback {
+        try await withThrowingTaskGroup(of: OAuthCallback?.self) { group in
+            group.addTask { try await receiver.callback() }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return nil
+            }
+            let first = try await group.next() ?? nil
+            group.cancelAll()
+            // Ends a callback still pending, so the group can finish.
+            receiver.stop()
+            guard let callback = first else { throw OAuthFailure.denied("pas de réponse du navigateur, réessaie") }
+            return callback
+        }
     }
 
     /// A fresh access token for the account (valid about an hour).
