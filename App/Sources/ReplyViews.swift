@@ -88,3 +88,32 @@ struct ReplyBanner: View {
         }
     }
 }
+
+/// The summary on top of the mail.
+struct SummaryBanner: View {
+    let message: MailMessage
+    let summaries: SummaryModel
+
+    var body: some View {
+        if let state = summaries.state(of: message) {
+            HStack(alignment: .top) {
+                Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                    .foregroundStyle(.tint)
+                switch state {
+                case .working:
+                    ProgressView("Résumé en cours…").controlSize(.small)
+                case let .done(text):
+                    Text(text).textSelection(.enabled)
+                case let .failed(reason):
+                    Text(reason).foregroundStyle(.red)
+                }
+                Spacer()
+                Button("Fermer", systemImage: "xmark") { summaries.dismiss(message) }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+            }
+            .padding(12)
+            .background(.tint.opacity(0.08))
+        }
+    }
+}

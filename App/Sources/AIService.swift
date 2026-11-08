@@ -79,3 +79,35 @@ final class ReplyModel {
         }
     }
 }
+
+/// Summaries of a mail or its whole thread, on click (C7).
+@MainActor @Observable
+final class SummaryModel {
+    enum State: Equatable {
+        case working
+        case done(String)
+        case failed(String)
+    }
+
+    private(set) var states: [MailMessage.ID: State] = [:]
+
+    func state(of message: MailMessage) -> State? { states[message.id] }
+
+    func summarize(_ message: MailMessage, settings: SharedSettings) {
+        states[message.id] = .working
+        Task {
+            do {
+                let token = try await GmailAuthenticator().accessToken(for: GmailAccount(email: message.account))
+                let thread = try await GmailAPI(accessToken: token).thread(id: message.threadID, account: message.account)
+                let prompt = SummaryPrompt.make(thread: thread.isEmpty ? [message] : thread, account: message.account)
+                states[message.id] = .done(try await AIService.complete(prompt, settings: settings))
+            } catch {
+                states[message.id] = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    func dismiss(_ message: MailMessage) {
+        states[message.id] = nil
+    }
+}
