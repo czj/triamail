@@ -135,7 +135,18 @@ private struct MessageRow: View {
 }
 
 struct MessageDetailView: View {
-    enum Pane: Hashable { case mail, translation, page, invoice }
+    enum Pane: Hashable {
+        case mail, translation, page, invoice
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .page: "Page"
+            case .invoice: "Facture"
+            case .translation: "Traduction"
+            case .mail: "Mail"
+            }
+        }
+    }
 
     let message: MailMessage
     let translations: TranslationModel
@@ -144,7 +155,7 @@ struct MessageDetailView: View {
     let settings: SharedSettings
     @State private var replying = false
     let markDone: () -> Void
-    @State private var reminderStatus: String?
+    @State private var status: String?
     @State private var choosingReminderDate = false
     @State private var reminderDate = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
     @State private var pane: Pane = .page
@@ -161,18 +172,18 @@ struct MessageDetailView: View {
         }
         .id(message.id)
         .safeAreaInset(edge: .top) { SummaryBanner(message: message, summaries: summaries) }
-        .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies).id(message.id) }
+        .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies) }
         .sheet(isPresented: $replying) { ReplySheet(message: message, replies: replies) }
         .safeAreaInset(edge: .bottom) {
-            if let reminderStatus {
-                Label(reminderStatus, systemImage: "bell")
+            if let status {
+                Label(status, systemImage: "info.circle")
                     .font(.caption)
                     .padding(8)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.bar)
-                    .task(id: reminderStatus) {
+                    .task(id: status) {
                         try? await Task.sleep(for: .seconds(4))
-                        self.reminderStatus = nil
+                        self.status = nil
                     }
             }
         }
@@ -183,14 +194,7 @@ struct MessageDetailView: View {
             if panes.count > 1 {
                 ToolbarItem {
                     Picker("Affichage", selection: $pane) {
-                        ForEach(panes, id: \.self) { pane in
-                            switch pane {
-                            case .page: Text("Page").tag(pane)
-                            case .invoice: Text("Facture").tag(pane)
-                            case .translation: Text("Traduction").tag(pane)
-                            case .mail: Text("Mail").tag(pane)
-                            }
-                        }
+                        ForEach(panes, id: \.self) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }
@@ -201,15 +205,15 @@ struct MessageDetailView: View {
                         .help(link.absoluteString)
                 }
             }
-            if message.gitHubRepository != nil {
+            if let repository = message.gitHubRepository {
                 ToolbarItem {
                     Button("Claude Code", systemImage: "terminal") {
                         Task {
                             do {
                                 try await ClaudeCodeLauncher.launch(message, settings: settings)
-                                reminderStatus = "Claude Code lancé dans \(message.gitHubRepository ?? "")"
+                                status = "Claude Code lancé dans \(repository)"
                             } catch {
-                                reminderStatus = error.localizedDescription
+                                status = error.localizedDescription
                             }
                         }
                     }
@@ -236,7 +240,7 @@ struct MessageDetailView: View {
                     Divider()
                     Button("Choisir une date…") { choosingReminderDate = true }
                 }
-                .help(reminderStatus ?? "Créer un rappel dans Rappels")
+                .help("Créer un rappel dans Rappels")
                 .popover(isPresented: $choosingReminderDate) {
                     VStack {
                         DatePicker("Rappel le", selection: $reminderDate, in: Date.now..., displayedComponents: .date)
@@ -262,9 +266,9 @@ struct MessageDetailView: View {
         Task {
             do {
                 let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: settings.remindersListName)
-                reminderStatus = "Rappel \(delay.title) créé dans « \(list) »"
+                status = "Rappel \(delay.title) créé dans « \(list) »"
             } catch {
-                reminderStatus = error.localizedDescription
+                status = error.localizedDescription
             }
         }
     }
