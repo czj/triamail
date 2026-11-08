@@ -18,7 +18,6 @@ struct MainView: View {
     @AppStorage("showsSidePane") private var showsSidePane = true
 
     var body: some View {
-        @Bindable var model = model
         let selected = selectedMessage
         let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
@@ -44,7 +43,6 @@ struct MainView: View {
         .navigationTitle(mailbox.title)
         .searchable(text: $search, placement: .sidebar, prompt: "Rechercher")
         .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
-        .sheet(isPresented: $model.asksForOAuthClient) { OAuthClientSheet() }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
@@ -84,11 +82,8 @@ struct MainView: View {
             } description: {
                 Text(model.signInMessage ?? "Connecte un compte Google pour voir les mails à traiter.")
             } actions: {
-                Button(model.signingIn ? "Connexion dans le navigateur…" : "Ajouter un compte Google", systemImage: "plus") {
-                    model.addGoogleAccount()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.signingIn)
+                AddGoogleAccountButton()
+                    .buttonStyle(.borderedProminent)
             }
         } else {
             let messages = visibleMessages

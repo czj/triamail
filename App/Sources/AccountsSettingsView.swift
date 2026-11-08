@@ -8,8 +8,6 @@ struct AccountsSettingsView: View {
     @State private var clientSecret = ""
     /// Feedback on the OAuth client fields; the sign-in's own outcome is `model.signInMessage`.
     @State private var message: String?
-    /// Read from the keychain on appear and after saving, not on every render.
-    @State private var hasClient = false
 
     private let authenticator = GmailAuthenticator()
 
@@ -23,10 +21,7 @@ struct AccountsSettingsView: View {
                         Button("Déconnecter") { model.removeAccount(account) }
                     }
                 }
-                Button(model.signingIn ? "Connexion dans le navigateur…" : "Ajouter un compte Google…", systemImage: "plus") {
-                    Task { await model.signIn() }
-                }
-                .disabled(model.signingIn || !hasClient)
+                AddGoogleAccountButton()
             } header: {
                 Text("Comptes Gmail")
             } footer: {
@@ -41,7 +36,6 @@ struct AccountsSettingsView: View {
                 Button("Enregistrer dans le trousseau") {
                     do {
                         try authenticator.saveClient(id: clientID, secret: clientSecret)
-                        hasClient = true
                         message = "Identifiant enregistré dans le trousseau de ce Mac."
                     } catch {
                         message = error.localizedDescription
@@ -60,10 +54,10 @@ struct AccountsSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onAppear {
+        // Again after a sign-in: the client may have been pasted in the main window's sheet.
+        .task(id: model.accounts) {
             clientID = authenticator.clientID ?? ""
             clientSecret = authenticator.clientSecret ?? ""
-            hasClient = authenticator.client != nil
         }
     }
 }

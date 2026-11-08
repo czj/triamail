@@ -36,44 +36,38 @@ final class AppModel {
         }
     }
 
-    /// "Ajouter un compte Google": opens Google's sign-in, or first asks for the OAuth client when none is saved.
-    func addGoogleAccount() {
-        if GmailAuthenticator().client == nil {
-            asksForOAuthClient = true
-        } else {
-            Task { await signIn() }
-        }
-    }
+    /// Where the last "Ajouter un compte Google" stands: in the browser, connected, or the error.
+    private(set) var signInMessage: String?
+    private var signInTask: Task<Void, Never>?
 
-    /// Shown by the main window as a sheet: the OAuth client to paste before signing in.
-    var asksForOAuthClient = false
-    private(set) var signingIn = false
-    /// The outcome of the last sign-in ("… est connecté." or the error).
-    var signInMessage: String?
-
-    /// Google's sign-in in the browser; the account is added once Google answers.
-    /// Shared by Settings > Comptes and the "Ajouter un compte Google" buttons.
-    func signIn() async {
-        guard !signingIn else { return }
-        signingIn = true
-        signInMessage = nil
-        defer { signingIn = false }
-        do {
-            let account = try await GmailAuthenticator().signIn { url in
-                await MainActor.run { _ = NSWorkspace.shared.open(url) }
+    /// "Ajouter un compte Google": Google's sign-in in the browser, the account is added once Google answers.
+    /// False when no OAuth client is saved yet: the caller asks for it, then calls again.
+    /// Clicking again while the browser is open starts over (closed tab, wrong account…).
+    func addGoogleAccount() -> Bool {
+        guard GmailAuthenticator().client != nil else { return false }
+        signInTask?.cancel()
+        signInMessage = "Termine la connexion dans le navigateur…"
+        signInTask = Task {
+            do {
+                let account = try await GmailAuthenticator().signIn { url in
+                    await MainActor.run { _ = NSWorkspace.shared.open(url) }
+                }
+                if !accounts.contains(account) { accounts.append(account) }
+                saveAccounts()
+                signInMessage = "\(account.email) est connecté."
+            } catch {
+                // A newer attempt replaced this one: its message wins.
+                if !Task.isCancelled { signInMessage = error.localizedDescription }
             }
-            if !accounts.contains(account) { accounts.append(account) }
-            saveAccounts()
-            signInMessage = "\(account.email) est connecté."
-        } catch {
-            signInMessage = error.localizedDescription
         }
+        return true
     }
 
     func removeAccount(_ account: GmailAccount) {
         Task { try? await GmailAuthenticator().signOut(account) }
         accounts.removeAll { $0 == account }
         saveAccounts()
+        signInMessage = nil
     }
 
     private func saveAccounts() {

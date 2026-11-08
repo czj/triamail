@@ -1,31 +1,45 @@
 import SwiftUI
 import TriamailKit
 
+/// "Ajouter un compte Google": asks for the OAuth client first when none is saved, then signs in.
+/// The sheet belongs to the window that shows the button.
+struct AddGoogleAccountButton: View {
+    @Environment(AppModel.self) private var model
+    @State private var askingClient = false
+
+    var body: some View {
+        Button("Ajouter un compte Google…", systemImage: "plus") {
+            if !model.addGoogleAccount() { askingClient = true }
+        }
+        .sheet(isPresented: $askingClient) { OAuthClientSheet() }
+    }
+}
+
 /// The toolbar's account menu: connected accounts, then "Ajouter un compte Google".
 struct AccountMenu: View {
     @Environment(AppModel.self) private var model
+    /// On the menu itself, not on its item: a menu item's sheet would close with the menu.
+    @State private var askingClient = false
 
     var body: some View {
         Menu("Comptes", systemImage: "person.crop.circle") {
             if !model.accounts.isEmpty {
                 Section("Comptes connectés") {
-                    ForEach(model.accounts) { account in
-                        Text(account.email)
-                    }
+                    ForEach(model.accounts) { Text($0.email) }
                 }
             }
-            Button(model.signingIn ? "Connexion dans le navigateur…" : "Ajouter un compte Google…", systemImage: "plus") {
-                model.addGoogleAccount()
+            Button("Ajouter un compte Google…", systemImage: "plus") {
+                if !model.addGoogleAccount() { askingClient = true }
             }
-            .disabled(model.signingIn)
             SettingsLink { Text("Gérer les comptes…") }
         }
         .help("Comptes Google")
+        .sheet(isPresented: $askingClient) { OAuthClientSheet() }
     }
 }
 
 /// Asked once, before the first sign-in: the OAuth client the user created in the Google Cloud console.
-/// Sign-in continues as soon as it is saved.
+/// Sign-in starts as soon as it is saved.
 struct OAuthClientSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -57,13 +71,13 @@ struct OAuthClientSheet: View {
                 Button("Enregistrer et se connecter") {
                     do {
                         try GmailAuthenticator().saveClient(id: clientID, secret: clientSecret)
-                        dismiss()
-                        Task { await model.signIn() }
+                        if model.addGoogleAccount() { dismiss() } else { error = "Identifiant ou code secret vide." }
                     } catch {
                         self.error = error.localizedDescription
                     }
                 }
-                .disabled(clientID.isEmpty || clientSecret.isEmpty)
+                .disabled(clientID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                          || clientSecret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
     }
