@@ -45,7 +45,7 @@ struct InvoicePane: View {
                 if plan.rule.sendToAccounting {
                     Label(plan.folder.accountingEmail.map { "Copie à \($0), puis à la corbeille une fois envoyée" }
                           ?? "Envoi à la comptabilité demandé, mais ce dossier n'a pas d'adresse", systemImage: "paperplane")
-                        .foregroundStyle(plan.folder.accountingEmail == nil ? .orange : .secondary)
+                        .foregroundStyle(plan.folder.accountingEmail == nil ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
                 }
             } else if pdf != nil {
                 Label("Aucune règle ne correspond : ajoute-en une dans Réglages > Archivage.", systemImage: "questionmark.folder")
