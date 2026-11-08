@@ -10,6 +10,7 @@ public struct SharedSettings: Codable, Equatable, Sendable {
     public var archiveRules: [ArchiveRule]
     /// The Reminders list for C4; nil means the default list.
     public var remindersListName: String?
+    public var profile: Profile
     /// Folders the "Tidy" button goes through (Downloads, Desktop, scans…), as "~/…" paths.
     public var tidySourcePaths: [String]
 
@@ -19,6 +20,7 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         self.archiveRules = archiveRules
         self.remindersListName = remindersListName
         self.tidySourcePaths = []
+        self.profile = Profile()
     }
 
     // Missing keys fall back to defaults, so older files keep loading as settings grow.
@@ -29,6 +31,7 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         archiveRules = try container.decodeIfPresent([ArchiveRule].self, forKey: .archiveRules) ?? []
         remindersListName = try container.decodeIfPresent(String.self, forKey: .remindersListName)
         tidySourcePaths = try container.decodeIfPresent([String].self, forKey: .tidySourcePaths) ?? []
+        profile = try container.decodeIfPresent(Profile.self, forKey: .profile) ?? Profile()
     }
 }
 
