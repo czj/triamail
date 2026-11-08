@@ -17,13 +17,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Secrets (gitleaks)
-        env:
-          GITLEAKS_VERSION: 8.24.3
         run: |
-          curl -sSfL --retry 4 -o gitleaks.tgz \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
-          tar -xzf gitleaks.tgz gitleaks && rm gitleaks.tgz
-          ./gitleaks git --redact --verbose .
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.24.3 git --redact --verbose /repo
       - name: Téléphones et adresses mail
         run: |
           # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques.
