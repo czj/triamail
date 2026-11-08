@@ -28,6 +28,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var choosingFolder = false
+    @State private var reminderLists: [String] = []
 
     var body: some View {
         Form {
@@ -52,6 +53,15 @@ struct GeneralSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Rappels") {
+                @Bindable var model = model
+                Picker("Liste", selection: $model.settings.remindersListName) {
+                    Text("Liste par défaut").tag(String?.none)
+                    ForEach(reminderLists, id: \.self) { Text($0).tag(Optional($0)) }
+                }
+                .onChange(of: model.settings.remindersListName) { model.save() }
+            }
+
             if let error = model.lastError {
                 Section {
                     Label(error, systemImage: "exclamationmark.triangle")
@@ -60,6 +70,11 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .task {
+            if (try? await RemindersService.shared.requestAccess()) == true {
+                reminderLists = RemindersService.shared.lists.map(\.title).sorted()
+            }
+        }
         .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
             if case let .success(folder) = result {
                 model.useSettingsFolder(folder)

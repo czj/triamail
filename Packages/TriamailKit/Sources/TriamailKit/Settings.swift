@@ -8,11 +8,14 @@ public struct SharedSettings: Codable, Equatable, Sendable {
     public var version: Int
     public var archiveFolders: [ArchiveFolder]
     public var archiveRules: [ArchiveRule]
+    /// The Reminders list for C4; nil means the default list.
+    public var remindersListName: String?
 
-    public init(archiveFolders: [ArchiveFolder] = [], archiveRules: [ArchiveRule] = []) {
+    public init(archiveFolders: [ArchiveFolder] = [], archiveRules: [ArchiveRule] = [], remindersListName: String? = nil) {
         self.version = Self.currentVersion
         self.archiveFolders = archiveFolders
         self.archiveRules = archiveRules
+        self.remindersListName = remindersListName
     }
 
     // Missing keys fall back to defaults, so older files keep loading as settings grow.
@@ -21,6 +24,7 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         version = try container.decodeIfPresent(Int.self, forKey: .version) ?? Self.currentVersion
         archiveFolders = try container.decodeIfPresent([ArchiveFolder].self, forKey: .archiveFolders) ?? []
         archiveRules = try container.decodeIfPresent([ArchiveRule].self, forKey: .archiveRules) ?? []
+        remindersListName = try container.decodeIfPresent(String.self, forKey: .remindersListName)
     }
 }
 

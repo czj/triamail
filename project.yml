@@ -34,6 +34,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Triamail
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Triamail crée des rappels pour les mails à suivre (J+1, J+3, J+7 ou une date)."
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         ENABLE_HARDENED_RUNTIME: YES
         # Pas de bac à sable : l'app écrit dans les dossiers choisis et écoute sur 127.0.0.1 pour OAuth.
