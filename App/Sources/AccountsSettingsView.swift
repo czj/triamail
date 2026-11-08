@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import TriamailKit
 
@@ -7,10 +6,9 @@ struct AccountsSettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var clientID = ""
     @State private var clientSecret = ""
-    @State private var signingIn = false
+    /// Feedback on the OAuth client fields; the sign-in's own outcome is `model.signInMessage`.
     @State private var message: String?
-    /// Read from the keychain on appear and after saving, not on every render.
-    @State private var hasClient = false
+    @State private var askingClient = false
 
     private let authenticator = GmailAuthenticator()
 
@@ -24,60 +22,33 @@ struct AccountsSettingsView: View {
                         Button("Déconnecter") { model.removeAccount(account) }
                     }
                 }
-                Button(signingIn ? "Connexion dans le navigateur…" : "Connecter un compte Gmail…", systemImage: "plus") {
-                    signIn()
-                }
-                .disabled(signingIn || !hasClient)
+                AddGoogleAccountButton(askingClient: $askingClient)
             } header: {
                 Text("Comptes Gmail")
             } footer: {
-                if let message {
+                if let message = model.signInMessage {
                     Text(message).foregroundStyle(.secondary)
                 }
             }
 
-            Section {
-                TextField("Identifiant client", text: $clientID, prompt: Text("….apps.googleusercontent.com"))
-                SecureField("Code secret du client", text: $clientSecret)
+            OAuthClientFields(clientID: $clientID, clientSecret: $clientSecret, message: message) {
                 Button("Enregistrer dans le trousseau") {
                     do {
                         try authenticator.saveClient(id: clientID, secret: clientSecret)
-                        hasClient = true
                         message = "Identifiant enregistré dans le trousseau de ce Mac."
                     } catch {
                         message = error.localizedDescription
                     }
                 }
                 .disabled(clientID.isEmpty || clientSecret.isEmpty)
-            } header: {
-                Text("Application Google (OAuth)")
-            } footer: {
-                Text("Crée un identifiant « Application de bureau » dans la console Google Cloud, avec l'API Gmail activée, puis colle-le ici. Il reste dans le trousseau.")
-                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .onAppear {
+        .oauthClientSheet(isPresented: $askingClient)
+        // Again on each sign-in attempt: the client may have just been pasted in a sheet.
+        .task(id: model.signInMessage) {
             clientID = authenticator.clientID ?? ""
             clientSecret = authenticator.clientSecret ?? ""
-            hasClient = authenticator.client != nil
-        }
-    }
-
-    private func signIn() {
-        signingIn = true
-        message = nil
-        Task {
-            defer { signingIn = false }
-            do {
-                let account = try await authenticator.signIn { url in
-                    await MainActor.run { _ = NSWorkspace.shared.open(url) }
-                }
-                model.addAccount(account)
-                message = "\(account.email) est connecté."
-            } catch {
-                message = error.localizedDescription
-            }
         }
     }
 }

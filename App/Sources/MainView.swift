@@ -14,6 +14,7 @@ struct MainView: View {
     @State private var selection: MailMessage.ID?
     @State private var search = ""
     @State private var tidying = false
+    @State private var askingClient = false
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
 
@@ -48,6 +49,9 @@ struct MainView: View {
                 Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
                     .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
             }
+            ToolbarItem(placement: .navigation) {
+                AccountMenu()
+            }
             ToolbarItem {
                 Button("Actualiser", systemImage: "arrow.clockwise") {
                     Task { await inbox.refresh(accounts: model.accounts) }
@@ -77,9 +81,11 @@ struct MainView: View {
             ContentUnavailableView {
                 Label("Aucun compte connecté", systemImage: "envelope.badge.shield.half.filled")
             } description: {
-                Text("Connecte un compte Gmail dans les réglages pour voir les mails à traiter.")
+                Text(model.signInMessage ?? "Connecte un compte Google pour voir les mails à traiter.")
             } actions: {
-                SettingsLink { Text("Ouvrir les réglages") }
+                AddGoogleAccountButton(askingClient: $askingClient)
+                    .buttonStyle(.borderedProminent)
+                    .oauthClientSheet(isPresented: $askingClient)
             }
         } else {
             let messages = visibleMessages

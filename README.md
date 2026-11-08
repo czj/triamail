@@ -19,7 +19,7 @@ The app's interface is in French.
 
 ## Getting started
 
-1. **Gmail**: in the Google Cloud console, create a project, enable the Gmail API, create a "Desktop app" OAuth client ID, then publish the consent screen to production. Paste the client ID and its secret into Réglages > Comptes (Settings > Accounts; they go into the keychain), then connect your accounts.
+1. **Gmail**: in the Google Cloud console, create a project, enable the Gmail API, create a "Desktop app" OAuth client ID, then publish the consent screen to production. Then click "Ajouter un compte Google" (Add a Google account) in the empty mail list or in the toolbar's account menu: the first time, the app asks for the client ID and its secret (they go into the keychain), then opens Google's sign-in. Réglages > Comptes (Settings > Accounts) lists and disconnects accounts.
 2. **Settings**: the settings folder (in iCloud Drive by default) holds `reglages.json` and the reply templates; it is shared between your Macs.
 3. **Archiving**: declare your local folders and your rules in Réglages > Archivage (Settings > Archiving).
 4. **AI**: macOS's local model (Apple Intelligence) or a Mistral key, in Réglages > IA (Settings > AI).
