@@ -17,7 +17,7 @@ struct SettingsView: View {
                 ArchiveSettingsView()
             }
             Tab("IA", systemImage: "sparkles") {
-                placeholder("Modèles d'IA", "Modèle local de macOS ou API Mistral.")
+                AISettingsView()
             }
         }
         .frame(width: 640, height: 520)

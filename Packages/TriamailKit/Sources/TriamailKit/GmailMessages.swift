@@ -23,6 +23,10 @@ public struct MailMessage: Identifiable, Hashable, Sendable {
     public var plainText: String
     public var html: String?
     public var attachments: [Attachment]
+    /// RFC 822 headers, for replies in the same thread.
+    public var rfcMessageID: String? = nil
+    public var references: String? = nil
+    public var replyTo: String? = nil
 
     /// "Prénom Nom <adresse@exemple.com>" → "Prénom Nom".
     public var senderName: String {
@@ -130,7 +134,10 @@ struct GmailMessageResource: Decodable {
             labelIDs: labelIds ?? [],
             plainText: plain.first ?? htmlText.map(\.strippingHTML) ?? "",
             html: htmlText,
-            attachments: attachments
+            attachments: attachments,
+            rfcMessageID: header("Message-ID") ?? header("Message-Id"),
+            references: header("References"),
+            replyTo: header("Reply-To")
         )
     }
 

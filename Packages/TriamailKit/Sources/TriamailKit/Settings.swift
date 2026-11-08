@@ -11,6 +11,8 @@ public struct SharedSettings: Codable, Equatable, Sendable {
     /// The Reminders list for C4; nil means the default list.
     public var remindersListName: String?
     public var profile: Profile
+    public var aiProvider: AIProvider
+    public var mistralModel: String
     /// Folders the "Tidy" button goes through (Downloads, Desktop, scans…), as "~/…" paths.
     public var tidySourcePaths: [String]
 
@@ -21,6 +23,8 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         self.remindersListName = remindersListName
         self.tidySourcePaths = []
         self.profile = Profile()
+        self.aiProvider = .appleLocal
+        self.mistralModel = MistralClient.defaultModel
     }
 
     // Missing keys fall back to defaults, so older files keep loading as settings grow.
@@ -32,6 +36,8 @@ public struct SharedSettings: Codable, Equatable, Sendable {
         remindersListName = try container.decodeIfPresent(String.self, forKey: .remindersListName)
         tidySourcePaths = try container.decodeIfPresent([String].self, forKey: .tidySourcePaths) ?? []
         profile = try container.decodeIfPresent(Profile.self, forKey: .profile) ?? Profile()
+        aiProvider = try container.decodeIfPresent(AIProvider.self, forKey: .aiProvider) ?? .appleLocal
+        mistralModel = try container.decodeIfPresent(String.self, forKey: .mistralModel) ?? MistralClient.defaultModel
     }
 }
 
