@@ -70,10 +70,8 @@ public struct GoogleOAuthClient: Sendable {
     }
 
     static func formEncode(_ form: [String: String]) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        return form.sorted { $0.key < $1.key }
-            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: allowed) ?? "")" }
+        form.sorted { $0.key < $1.key }
+            .map { "\($0.key)=\(OutgoingMail.percentEncoded($0.value))" }
             .joined(separator: "&")
     }
 }
@@ -265,4 +263,9 @@ extension Data {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
     }
+}
+
+extension CharacterSet {
+    /// RFC 3986 unreserved characters: everything else is percent-encoded.
+    static let urlUnreserved = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
 }

@@ -131,13 +131,54 @@ public struct GmailAPI: Sendable {
     func get<T: Decodable>(_ path: String, query: [URLQueryItem] = [], as type: T.Type) async throws -> T {
         var components = URLComponents(url: Self.base.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
-        var request = URLRequest(url: components.url!)
+        return try JSONDecoder().decode(T.self, from: await perform(URLRequest(url: components.url!)))
+    }
+
+    func post<T: Decodable>(_ path: String, json: [String: Any], as type: T.Type) async throws -> T {
+        try JSONDecoder().decode(T.self, from: await post(path, json: json))
+    }
+
+    /// For calls whose answer Triamail does not need (archive, trash…).
+    @discardableResult
+    func post(_ path: String, json: [String: Any]) async throws -> Data {
+        var request = URLRequest(url: Self.base.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        return try await perform(request)
+    }
+
+    /// Every Gmail call goes through here: authorization, then Google's error message if any.
+    private func perform(_ request: URLRequest) async throws -> Data {
+        var request = request
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw OAuthFailure.server("Gmail HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200 else { throw GmailFailure.http(status, GmailFailure.googleMessage(in: data)) }
+        return data
+    }
+}
+
+/// What can go wrong with Gmail itself (as opposed to signing in, see `OAuthFailure`).
+public enum GmailFailure: Error, LocalizedError, Equatable {
+    case http(Int, String?)
+    case unreadableAttachment
+    case sendNotConfirmed
+
+    public var errorDescription: String? {
+        switch self {
+        case .http(401, _): "Gmail refuse l'accès : reconnecte le compte dans Réglages > Comptes."
+        case .http(429, _): "Gmail demande de ralentir : réessaie dans un instant."
+        case let .http(status, message): "Gmail a répondu \(status)\(message.map { " : \($0)" } ?? "")."
+        case .unreadableAttachment: "Pièce jointe illisible."
+        case .sendNotConfirmed: "Gmail n'a pas confirmé l'envoi."
         }
-        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    /// Google's JSON errors: { "error": { "message": "…" } }.
+    static func googleMessage(in data: Data) -> String? {
+        struct Body: Decodable { struct Error: Decodable { var message: String }; var error: Error }
+        return (try? JSONDecoder().decode(Body.self, from: data))?.error.message
     }
 }
 

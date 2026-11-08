@@ -6,7 +6,7 @@ extension GmailAPI {
     public func attachment(messageID: String, attachmentID: String) async throws -> Data {
         struct Body: Decodable { var data: String }
         let body = try await get("messages/\(messageID)/attachments/\(attachmentID)", as: Body.self)
-        guard let data = Data(base64URLEncoded: body.data) else { throw OAuthFailure.server("pièce jointe illisible") }
+        guard let data = Data(base64URLEncoded: body.data) else { throw GmailFailure.unreadableAttachment }
         return data
     }
 
@@ -14,14 +14,13 @@ extension GmailAPI {
     public func send(raw: Data) async throws -> String {
         struct Sent: Decodable { var id: String; var labelIds: [String]? }
         let sent = try await post("messages/send", json: ["raw": raw.base64URLEncoded], as: Sent.self)
-        guard sent.labelIds?.contains("SENT") ?? true else { throw OAuthFailure.server("envoi non confirmé") }
+        guard sent.labelIds?.contains("SENT") ?? true else { throw GmailFailure.sendNotConfirmed }
         return sent.id
     }
 
     /// Moves a message to Gmail's trash (recoverable for 30 days).
     public func trash(messageID: String) async throws {
-        struct Ignored: Decodable {}
-        _ = try await post("messages/\(messageID)/trash", json: [:], as: Ignored.self)
+        try await post("messages/\(messageID)/trash", json: [:])
     }
 }
 
@@ -94,8 +93,6 @@ public struct OutgoingMail: Sendable {
     }
 
     static func percentEncoded(_ text: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        return text.addingPercentEncoding(withAllowedCharacters: allowed) ?? text
+        text.addingPercentEncoding(withAllowedCharacters: .urlUnreserved) ?? text
     }
 }

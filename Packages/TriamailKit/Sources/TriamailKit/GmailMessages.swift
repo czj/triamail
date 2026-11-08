@@ -130,12 +130,12 @@ struct GmailMessageResource: Decodable {
             subject: header("Subject") ?? "",
             date: Date(timeIntervalSince1970: milliseconds / 1000),
             snippet: (snippet ?? "").htmlEntitiesDecoded,
-            listID: header("List-ID") ?? header("List-Id"),
+            listID: header("List-ID"),
             labelIDs: labelIds ?? [],
             plainText: plain.first ?? htmlText.map(\.strippingHTML) ?? "",
             html: htmlText,
             attachments: attachments,
-            rfcMessageID: header("Message-ID") ?? header("Message-Id"),
+            rfcMessageID: header("Message-ID"),
             references: header("References"),
             replyTo: header("Reply-To")
         )
@@ -185,21 +185,7 @@ extension GmailAPI {
 
     /// "Done": the mail leaves the inbox (Gmail's archive), nothing is deleted.
     public func archive(messageID: String) async throws {
-        struct Ignored: Decodable {}
-        _ = try await post("messages/\(messageID)/modify", json: ["removeLabelIds": ["INBOX"]], as: Ignored.self)
-    }
-
-    func post<T: Decodable>(_ path: String, json: [String: Any], as type: T.Type) async throws -> T {
-        var request = URLRequest(url: Self.base.appendingPathComponent(path))
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: json)
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw OAuthFailure.server("Gmail HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0)")
-        }
-        return try JSONDecoder().decode(T.self, from: data)
+        try await post("messages/\(messageID)/modify", json: ["removeLabelIds": ["INBOX"]])
     }
 }
 
