@@ -53,7 +53,6 @@ struct ReplySheet: View {
 struct ReplyBanner: View {
     let message: MailMessage
     let replies: ReplyModel
-    @State private var text = ""
 
     var body: some View {
         if let state = replies.state(of: message) {
@@ -64,15 +63,14 @@ struct ReplyBanner: View {
                         .controlSize(.small)
                 case let .ready(draft):
                     Text("Réponse proposée : relis-la, modifie-la").font(.headline)
-                    TextEditor(text: $text)
+                    // Bound to the model: the text belongs to this mail, never to the view.
+                    TextEditor(text: Binding(get: { draft }, set: { replies.update(message, text: $0) }))
                         .font(.body)
                         .frame(minHeight: 160, maxHeight: 320)
-                        .onAppear { text = draft }
-                        .onChange(of: text) { replies.update(message, text: text) }
                     HStack {
                         Button("Jeter", role: .destructive) { replies.discard(message) }
                         Spacer()
-                        Button("Créer le brouillon dans Gmail") { Task { await replies.saveDraft(message, text: text) } }
+                        Button("Créer le brouillon dans Gmail") { Task { await replies.saveDraft(message) } }
                             .buttonStyle(.borderedProminent)
                     }
                 case let .failed(reason):

@@ -69,7 +69,8 @@ final class ReplyModel {
     }
 
     /// The reviewed text goes to Gmail's drafts, in the thread; sending stays a deliberate act.
-    func saveDraft(_ message: MailMessage, text: String) async {
+    func saveDraft(_ message: MailMessage) async {
+        guard case let .ready(text) = states[message.id] else { return }
         do {
             _ = try await GmailAuthenticator().api(for: message.gmailAccount).createDraft(ReplyDraft(original: message, body: text))
             states[message.id] = .saved
