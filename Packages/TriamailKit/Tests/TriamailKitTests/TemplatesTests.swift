@@ -48,6 +48,79 @@ import Testing
         }
     }
 
+    @Test func readsFrontMatter() {
+        let template = ReplyTemplate(id: "repondre", contents: """
+        ---
+        titre: Répondre poliment
+        bouton: Répondre
+        raccourci: cmd+shift+1
+        icone: arrowshape.turn.up.left
+        ---
+        Fil : {selection}
+        """)
+        #expect(template.title == "Répondre poliment")
+        #expect(template.label == "Répondre")
+        #expect(template.shortcut == TemplateShortcut(modifiers: [.cmd, .shift], key: "1"))
+        #expect(template.icon == "arrowshape.turn.up.left")
+        #expect(template.prompt == "Fil : {selection}")
+    }
+
+    @Test func withoutFrontMatterTheFileNameIsTheTitle() {
+        let text = "Bonjour\n-----------------------------\n{selection}"
+        let template = ReplyTemplate(id: "dites-m-en-plus", contents: text)
+        #expect(template.title == "Dites m en plus")
+        #expect(template.label == "Dites m en plus")
+        #expect(template.shortcut == nil)
+        #expect(template.prompt == text)
+    }
+
+    @Test func fileContentsReadBack() {
+        let template = ReplyTemplate(id: "x", title: "Oubliez-moi", buttonLabel: "", shortcut: TemplateShortcut("ctrl+option+o"), icon: "hand.raised", prompt: "Texte\n\nsur plusieurs lignes")
+        #expect(ReplyTemplate(id: "x", contents: template.fileContents) == template)
+        #expect(template.shortcut?.rawValue == "option+control+o")
+        #expect(template.shortcut?.symbols == "⌃⌥O")
+    }
+
+    @Test func parsesShortcuts() {
+        #expect(TemplateShortcut("Command+Shift+R") == TemplateShortcut(modifiers: [.cmd, .shift], key: "r"))
+        #expect(TemplateShortcut("cmd+shift+1")?.symbols == "⇧⌘1")
+        #expect(TemplateShortcut("cmd+shift+1")?.rawValue == "cmd+shift+1")
+        #expect(TemplateShortcut("cmd+") == nil)
+        #expect(TemplateShortcut("hyper+a") == nil)
+        #expect(TemplateShortcut("cmd+ab") == nil)
+    }
+
+    @Test func findsShortcutClashes() {
+        let templates = [
+            ReplyTemplate(id: "a", shortcut: TemplateShortcut("cmd+shift+1"), prompt: ""),
+            ReplyTemplate(id: "b", shortcut: TemplateShortcut("cmd+shift+1"), prompt: ""),
+            ReplyTemplate(id: "c", shortcut: TemplateShortcut("cmd+shift+r"), prompt: ""),
+            ReplyTemplate(id: "d", shortcut: TemplateShortcut("cmd+shift+2"), prompt: ""),
+            ReplyTemplate(id: "e", prompt: ""),
+        ]
+        let problems = ReplyTemplate.shortcutProblems(in: templates)
+        #expect(Set(problems.keys) == ["a", "b", "c"])
+        #expect(problems["c"]?.contains("Triamail") == true)
+    }
+
+    @Test func savesRenamesAndDeletes() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = SettingsStore(folder: folder)
+        var template = try store.save(ReplyTemplate(id: "", title: "Répondre à l'été", prompt: "Bonjour"))
+        #expect(template.id == "repondre-a-l-ete")
+        // Same title for another template: a distinct file.
+        let twin = try store.save(ReplyTemplate(id: "", title: "Répondre à l'été", prompt: "Autre"))
+        #expect(twin.id == "repondre-a-l-ete-2")
+        template.title = "Relancer"
+        template = try store.save(template)
+        #expect(template.id == "relancer")
+        #expect(try store.templates().map(\.id) == ["relancer", "repondre-a-l-ete-2"])
+        #expect(try store.templates().first?.prompt == "Bonjour")
+        try store.deleteTemplate(id: twin.id)
+        #expect(try store.templates().map(\.id) == ["relancer"])
+    }
+
     @Test func oldSettingsHaveAnEmptyProfile() throws {
         let settings = try JSONDecoder().decode(SharedSettings.self, from: Data(#"{"version":1}"#.utf8))
         #expect(settings.profile == Profile())

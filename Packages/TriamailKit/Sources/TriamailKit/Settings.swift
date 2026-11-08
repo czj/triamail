@@ -96,7 +96,39 @@ public struct SettingsStore: Sendable {
             .contentsOfDirectory(at: templatesFolder, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
             .filter { ["md", "txt"].contains($0.pathExtension.lowercased()) && $0.lastPathComponent.lowercased() != "readme.md" }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-            .map { ReplyTemplate(id: $0.deletingPathExtension().lastPathComponent, prompt: try String(contentsOf: $0, encoding: .utf8)) }
+            .map { ReplyTemplate(id: $0.deletingPathExtension().lastPathComponent, contents: try String(contentsOf: $0, encoding: .utf8)) }
+    }
+
+    /// Writes the template to `<file name from its title>.md`, renaming its file when the title changed.
+    /// Returns the template with its new ID (its file name).
+    @discardableResult
+    public func save(_ template: ReplyTemplate) throws -> ReplyTemplate {
+        try FileManager.default.createDirectory(at: templatesFolder, withIntermediateDirectories: true)
+        let taken = Set(try templates().map(\.id)).subtracting([template.id])
+        let base = template.title.fileNameSlug.isEmpty ? "modele" : template.title.fileNameSlug
+        var id = base
+        var counter = 2
+        while taken.contains(id) {
+            id = "\(base)-\(counter)"
+            counter += 1
+        }
+        var saved = template
+        saved.id = id
+        try saved.fileContents.write(to: file(for: id), atomically: true, encoding: .utf8)
+        if id != template.id, !template.id.isEmpty {
+            try? FileManager.default.removeItem(at: file(for: template.id))
+        }
+        return saved
+    }
+
+    public func deleteTemplate(id: ReplyTemplate.ID) throws {
+        try FileManager.default.removeItem(at: file(for: id))
+    }
+
+    /// `.md`, or the `.txt` an older template may still use.
+    private func file(for id: ReplyTemplate.ID) -> URL {
+        let text = templatesFolder.appendingPathComponent("\(id).txt")
+        return FileManager.default.fileExists(atPath: text.path) ? text : templatesFolder.appendingPathComponent("\(id).md")
     }
 
     /// Copies the bundled templates into the settings folder, never overwriting the user's own.
@@ -112,15 +144,6 @@ public struct SettingsStore: Sendable {
     }
 }
 
-public struct ReplyTemplate: Identifiable, Equatable, Sendable {
-    public var id: String
-    public var prompt: String
-
-    public init(id: String, prompt: String) {
-        self.id = id
-        self.prompt = prompt
-    }
-}
 
 extension String {
     /// "~/Downloads" → the folder's URL on this Mac.

@@ -1,3 +1,7 @@
+---
+titre: Loufoque
+icone: theatermasks
+---
 En tant que {profil.nom_complet}, {profil.fonction} de {profil.entreprise}, j'ai reçu le courriel professionnel suivant dans ma boîte de réception :
 
 -----------------------------

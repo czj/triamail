@@ -1,3 +1,9 @@
+---
+titre: Dites-m'en plus
+bouton: En savoir plus
+raccourci: cmd+shift+3
+icone: questionmark.bubble
+---
 I am {profil.nom_complet}, {profil.fonction} of {profil.entreprise}. An email has landed in my inbox to which I require your assistance in crafting a response on my behalf. The essence of this message should relay my interest for more information about what's mentioned in the email.
 
 It is integral to me that our message preserves a tone that is formal, yet emits warmth. The language employed must fully represent my preference for complete words over abbreviations, exuding the professionalism befitting of my position.
