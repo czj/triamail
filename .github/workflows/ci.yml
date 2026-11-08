@@ -59,9 +59,17 @@ jobs:
         run: brew install xcodegen && xcodegen generate
       - name: Compiler l'app
         run: |
-          xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Debug \
-            -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build | tail -40
-          exit "${PIPESTATUS[0]}"
+          if ! xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Debug \
+               -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build > build.log 2>&1; then
+            # Les erreurs du compilateur, en annotations sur le diff, puis la fin du journal.
+            grep -E "^/.+:[0-9]+:[0-9]+: error: " build.log | sort -u | while IFS= read -r line; do
+              file=${line%%:*}; rest=${line#*:}; row=${rest%%:*}; rest=${rest#*:}; col=${rest%%:*}; msg=${rest#*: error: }
+              echo "::error file=${file#$GITHUB_WORKSPACE/},line=$row,col=$col::$msg"
+            done
+            tail -25 build.log
+            exit 1
+          fi
+          grep -cE ": warning: " build.log | xargs echo "Avertissements :"
 
   # Le seul contrôle exigé par la règle de protection de main : on peut ajouter ou renommer
   # des jobs au-dessus sans toucher à la règle. Tout nouveau job doit figurer dans needs.

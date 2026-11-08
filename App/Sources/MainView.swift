@@ -1,10 +1,12 @@
 import SwiftUI
+@preconcurrency import Translation
 import TriamailKit
 
 /// The three columns: mailboxes, mails to triage, and the action panel on the right.
 struct MainView: View {
     @Environment(AppModel.self) private var model
     @State private var inbox = InboxModel()
+    @State private var translations = TranslationModel()
     @State private var mailbox: Mailbox? = .toTriage
     @State private var selection: MailMessage.ID?
 
@@ -21,7 +23,7 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360)
         } detail: {
             if let message = selectedMessage {
-                MessageDetailView(message: message) {
+                MessageDetailView(message: message, translations: translations) {
                     Task { await inbox.markDone(message) }
                 }
             } else {
@@ -39,6 +41,7 @@ struct MainView: View {
             }
         }
         .task(id: model.accounts) { await inbox.refresh(accounts: model.accounts) }
+        .task(id: inbox.messages.map(\.id)) { await translations.process(inbox.messages) }
     }
 
     @ViewBuilder private var messageList: some View {
@@ -53,7 +56,7 @@ struct MainView: View {
         } else {
             let messages = inbox.messages(in: mailbox ?? .toTriage)
             List(messages, selection: $selection) { message in
-                MessageRow(message: message)
+                MessageRow(message: message, language: translations.language(of: message))
             }
             .overlay {
                 if inbox.loading && messages.isEmpty {
@@ -82,6 +85,7 @@ struct MainView: View {
 
 private struct MessageRow: View {
     let message: MailMessage
+    let language: Locale.Language?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -90,6 +94,13 @@ private struct MessageRow: View {
                     .fontWeight(message.labelIDs.contains("UNREAD") ? .semibold : .regular)
                     .lineLimit(1)
                 Spacer()
+                if let language {
+                    Text("\(language.shortCode) → FR")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 4)
+                        .background(.tint.opacity(0.15), in: .capsule)
+                        .help("Traduit automatiquement sur ce Mac")
+                }
                 Text(message.date, format: .relative(presentation: .named))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -116,30 +127,42 @@ private struct MessageRow: View {
 }
 
 struct MessageDetailView: View {
-    enum Pane: Hashable { case mail, page }
+    enum Pane: Hashable { case mail, translation, page }
 
     let message: MailMessage
+    let translations: TranslationModel
     let markDone: () -> Void
     @State private var pane: Pane = .page
+    @State private var download: TranslationSession.Configuration?
 
     var body: some View {
         Group {
-            if let link = message.primaryLink, pane == .page {
-                WebPanel(url: link)
-            } else {
-                mailBody
+            switch visiblePane {
+            case .page: if let link = message.primaryLink { WebPanel(url: link) }
+            case .translation: translationBody
+            case .mail: mailBody
             }
         }
         .id(message.id)
+        .translationTask(download) { session in
+            await translations.translate(message, with: session)
+        }
         .toolbar {
-            if let link = message.primaryLink {
+            if panes.count > 1 {
                 ToolbarItem {
                     Picker("Affichage", selection: $pane) {
-                        Text("Page").tag(Pane.page)
-                        Text("Mail").tag(Pane.mail)
+                        ForEach(panes, id: \.self) { pane in
+                            switch pane {
+                            case .page: Text("Page").tag(pane)
+                            case .translation: Text("Traduction").tag(pane)
+                            case .mail: Text("Mail").tag(pane)
+                            }
+                        }
                     }
                     .pickerStyle(.segmented)
                 }
+            }
+            if let link = message.primaryLink {
                 ToolbarItem {
                     Link(destination: link) { Label("Ouvrir dans le navigateur", systemImage: "safari") }
                         .help(link.absoluteString)
@@ -150,6 +173,50 @@ struct MessageDetailView: View {
                     .keyboardShortcut("e")
                     .help("Archive le mail dans Gmail : il sort de la liste")
             }
+        }
+    }
+
+    private var panes: [Pane] {
+        (message.primaryLink != nil ? [.page] : []) + (translations.language(of: message) != nil ? [.translation] : []) + [.mail]
+    }
+
+    /// The chosen pane if this mail has it, else the first one (page, then translation, then mail).
+    private var visiblePane: Pane {
+        panes.contains(pane) ? pane : panes[0]
+    }
+
+    @ViewBuilder private var translationBody: some View {
+        switch translations.state(of: message) {
+        case let .done(text):
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(message.subject).font(.title2.weight(.semibold))
+                    Label("Traduit sur ce Mac, depuis \(Locale.current.localizedString(forLanguageCode: translations.language(of: message)?.languageCode?.identifier ?? "") ?? "une autre langue")", systemImage: "translate")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Divider()
+                    Text(text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding()
+            }
+        case .needsDownload:
+            ContentUnavailableView {
+                Label("Langue à télécharger", systemImage: "arrow.down.circle")
+            } description: {
+                Text("macOS doit télécharger cette langue une fois ; ensuite, la traduction se fait toute seule, hors ligne.")
+            } actions: {
+                Button("Télécharger et traduire") {
+                    if let language = translations.language(of: message) {
+                        download = .init(source: language, target: Locale.Language(identifier: "fr"))
+                    }
+                }
+            }
+        case let .failed(reason):
+            ContentUnavailableView("Traduction impossible", systemImage: "exclamationmark.triangle", description: Text(reason))
+        case .translating, nil:
+            ProgressView("Traduction…")
         }
     }
 
