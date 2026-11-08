@@ -10,6 +10,9 @@ struct SettingsView: View {
             Tab("Comptes", systemImage: "person.crop.circle") {
                 AccountsSettingsView()
             }
+            Tab("Profil", systemImage: "person.text.rectangle") {
+                ProfileSettingsView()
+            }
             Tab("Archivage", systemImage: "folder") {
                 ArchiveSettingsView()
             }
