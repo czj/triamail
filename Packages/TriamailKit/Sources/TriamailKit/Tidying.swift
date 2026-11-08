@@ -70,7 +70,7 @@ public struct FolderTidier: Sendable {
 
     /// "2025-12-01 - Facture.pdf" → 1 December 2025.
     static func date(fromName name: String, calendar: Calendar) -> Date? {
-        guard let match = name.prefixMatch(of: /(\d{4})-(\d{2})-(\d{2}) - /),
+        guard let match = name.prefixMatch(of: #/(\d{4})-(\d{2})-(\d{2}) - /#),
               let year = Int(match.1), let month = Int(match.2), let day = Int(match.3) else { return nil }
         return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
     }
