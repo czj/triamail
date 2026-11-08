@@ -1,11 +1,9 @@
-import AppKit
 import SwiftUI
 import TriamailKit
 
-/// Settings > Profile: who the replies speak for, and the reply templates (text files).
+/// Settings > Profile: who the replies speak for (the `{profil.…}` variables of the templates).
 struct ProfileSettingsView: View {
     @Environment(AppModel.self) private var model
-    @State private var templates: [ReplyTemplate] = []
 
     var body: some View {
         @Bindable var model = model
@@ -26,25 +24,7 @@ struct ProfileSettingsView: View {
                 Text("Ces informations remplacent les variables {profil.…} des modèles de réponse. Elles restent dans ton dossier de réglages.")
                     .foregroundStyle(.secondary)
             }
-
-            Section {
-                ForEach(templates) { template in
-                    LabeledContent(template.title) {
-                        Text(template.arguments.isEmpty ? "aucun champ" : template.arguments.joined(separator: ", "))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Button("Ouvrir le dossier des modèles") {
-                    NSWorkspace.shared.open(model.store.templatesFolder)
-                }
-            } header: {
-                Text("Modèles de réponse")
-            } footer: {
-                Text("Un fichier texte par modèle : modifie-les, ajoutes-en, ils apparaissent ici.")
-                    .foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
-        .task { templates = (try? model.store.templates()) ?? [] }
     }
 }

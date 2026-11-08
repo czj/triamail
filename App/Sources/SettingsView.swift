@@ -13,6 +13,9 @@ struct SettingsView: View {
             Tab("Profil", systemImage: "person.text.rectangle") {
                 ProfileSettingsView()
             }
+            Tab("Modèles", systemImage: "text.bubble") {
+                TemplatesSettingsView()
+            }
             Tab("Archivage", systemImage: "folder") {
                 ArchiveSettingsView()
             }
@@ -20,7 +23,7 @@ struct SettingsView: View {
                 AISettingsView()
             }
         }
-        .frame(width: 640, height: 520)
+        .frame(width: 760, height: 560)
     }
 }
 

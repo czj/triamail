@@ -1,22 +1,67 @@
 import SwiftUI
 import TriamailKit
 
-/// Choose a template, fill its fields, start writing.
-struct ReplySheet: View {
+/// One button per reply template under the mail, with its icon, label and shortcut.
+/// A template without `{argument …}` starts drafting on click; the others ask for their fields first.
+struct TemplateBar: View {
     let message: MailMessage
     let replies: ReplyModel
     @Environment(AppModel.self) private var model
+    @State private var asking: ReplyTemplate?
+
+    var body: some View {
+        if !model.templates.isEmpty {
+            ScrollView(.horizontal) {
+                HStack {
+                    ForEach(model.templates) { template in
+                        // A shortcut that clashes (Settings > Modèles shows why) is not bound.
+                        let shortcut = model.shortcutProblems[template.id] == nil ? template.shortcut : nil
+                        Button(template.label, systemImage: template.icon ?? "sparkles") { reply(with: template) }
+                            .keyboardShortcut(shortcut?.keyboardShortcut)
+                            .help([template.title, shortcut?.symbols].compactMap { $0 }.joined(separator: "  "))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+            }
+            .scrollIndicators(.never)
+            .background(.bar)
+            .sheet(item: $asking) { ReplySheet(message: message, template: $0, replies: replies) }
+        }
+    }
+
+    private func reply(with template: ReplyTemplate) {
+        if template.arguments.isEmpty {
+            replies.write(message, template: template, arguments: [:], settings: model.settings)
+        } else {
+            asking = template
+        }
+    }
+}
+
+extension TemplateShortcut {
+    var keyboardShortcut: KeyboardShortcut {
+        var modifiers: EventModifiers = []
+        if self.modifiers.contains(.cmd) { modifiers.insert(.command) }
+        if self.modifiers.contains(.shift) { modifiers.insert(.shift) }
+        if self.modifiers.contains(.option) { modifiers.insert(.option) }
+        if self.modifiers.contains(.control) { modifiers.insert(.control) }
+        return KeyboardShortcut(KeyEquivalent(key), modifiers: modifiers)
+    }
+}
+
+/// The fields a template asks for (`{argument name="…"}`), then drafting starts.
+struct ReplySheet: View {
+    let message: MailMessage
+    let template: ReplyTemplate
+    let replies: ReplyModel
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @State private var templates: [ReplyTemplate] = []
-    @State private var templateID: ReplyTemplate.ID?
     @State private var arguments: [String: String] = [:]
 
     var body: some View {
         Form {
-            Picker("Modèle", selection: $templateID) {
-                ForEach(templates) { Text($0.title).tag(Optional($0.id)) }
-            }
-            if let template {
+            Section(template.title) {
                 ForEach(template.arguments, id: \.self) { name in
                     TextField(name, text: Binding(get: { arguments[name, default: ""] }, set: { arguments[name] = $0 }), axis: .vertical)
                         .lineLimit(2...6)
@@ -32,21 +77,12 @@ struct ReplySheet: View {
             ToolbarItem(placement: .cancellationAction) { Button("Annuler") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
                 Button("Rédiger") {
-                    if let template {
-                        replies.write(message, template: template, arguments: arguments, settings: model.settings)
-                    }
+                    replies.write(message, template: template, arguments: arguments, settings: model.settings)
                     dismiss()
                 }
-                .disabled(template == nil)
             }
         }
-        .task {
-            templates = (try? model.store.templates()) ?? []
-            templateID = templateID ?? templates.first?.id
-        }
     }
-
-    private var template: ReplyTemplate? { templates.first { $0.id == templateID } }
 }
 
 /// The reply under the mail: writing, then the text to review and send to Gmail's drafts.

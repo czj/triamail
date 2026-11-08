@@ -130,6 +130,45 @@ final class AppModel {
             loadFailed = true
             lastError = "Impossible de lire les réglages : \(error.localizedDescription). Rien ne sera enregistré tant que le fichier n'est pas corrigé."
         }
+        reloadTemplates()
+    }
+
+    /// The reply templates of the settings folder: read on load and after each edit in Settings > Modèles.
+    private(set) var templates: [ReplyTemplate] = [] {
+        didSet { shortcutProblems = ReplyTemplate.shortcutProblems(in: templates) }
+    }
+    /// Templates whose shortcut clashes: the mail window does not bind it.
+    private(set) var shortcutProblems: [ReplyTemplate.ID: String] = [:]
+
+    /// Again from disk: also picks up files edited by hand or synced from another Mac.
+    func reloadTemplates() {
+        do {
+            templates = try store.templates()
+        } catch {
+            lastError = "Impossible de lire les modèles : \(error.localizedDescription)"
+        }
+    }
+
+    /// Writes the template (its file follows its title); nil when it could not be saved.
+    @discardableResult
+    func saveTemplate(_ template: ReplyTemplate) -> ReplyTemplate? {
+        do {
+            let saved = try store.save(template)
+            reloadTemplates()
+            return saved
+        } catch {
+            lastError = "Impossible d'enregistrer le modèle : \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func deleteTemplate(_ template: ReplyTemplate) {
+        do {
+            try store.deleteTemplate(id: template.id)
+        } catch {
+            lastError = "Impossible de supprimer le modèle : \(error.localizedDescription)"
+        }
+        reloadTemplates()
     }
 
     private func scheduleSave() {
