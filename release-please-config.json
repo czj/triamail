@@ -12,15 +12,15 @@
       "changelog-sections": [
         {
           "type": "feat",
-          "section": "Nouveautés"
+          "section": "Features"
         },
         {
           "type": "fix",
-          "section": "Corrections"
+          "section": "Bug Fixes"
         },
         {
           "type": "perf",
-          "section": "Performances"
+          "section": "Performance"
         },
         {
           "type": "docs",
@@ -28,12 +28,12 @@
         },
         {
           "type": "refactor",
-          "section": "Refonte",
+          "section": "Refactoring",
           "hidden": true
         },
         {
           "type": "chore",
-          "section": "Maintenance",
+          "section": "Miscellaneous",
           "hidden": true
         }
       ],
