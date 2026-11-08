@@ -5,6 +5,11 @@ public struct ClaudeCodeLaunch: Equatable, Sendable {
     public var folder: URL
     public var prompt: String
 
+    public init(folder: URL, prompt: String) {
+        self.folder = folder
+        self.prompt = prompt
+    }
+
     /// The repository's folder: an explicit mapping first, else "<code folder>/<repo name>" if it exists.
     public static func folder(for repository: String, mapping: [String: String], codeRoot: String?, fileManager: FileManager = .default) -> URL? {
         if let path = mapping[repository] ?? mapping[repository.lowercased()] {
