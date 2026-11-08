@@ -28,6 +28,7 @@ Principes :
 - Rien de personnel en dur : tout se règle dans l'app. Réglages partagés : `reglages.json` et `modeles/` dans un dossier iCloud Drive (`SettingsStore`) ; secrets : trousseau (`Keychain`).
 - Feuille de route : les issues numérotées « Étape n sur N », traitées dans l'ordre, une PR par issue (`Closes #n`).
 - Mises à jour : Sparkle 2. La release publie `appcast.xml`, signé EdDSA avec le secret `SPARKLE_PRIVATE_KEY` ; la clé publique vient de la variable du dépôt `SPARKLE_PUBLIC_KEY`. Sans elles, Sparkle reste éteint (builds locaux).
+- Distribution : `scripts/package.sh` construit `Triamail.dmg` et les zips (signature Developer ID et notarisation si les secrets `DEVELOPER_ID_*` et `APPLE_*` existent, ad hoc sinon) ; la cask Homebrew `Casks/triamail.rb` pointe toujours sur la dernière release.
 
 ## Langue
 Le code, les noms de types et les commentaires sont en anglais ; la documentation et les textes de l'interface sont en français.
