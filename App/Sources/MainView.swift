@@ -1,5 +1,5 @@
 import SwiftUI
-import Translation
+@preconcurrency import Translation
 import TriamailKit
 
 /// The three columns: mailboxes, mails to triage, and the action panel on the right.

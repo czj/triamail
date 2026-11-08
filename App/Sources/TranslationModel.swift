@@ -1,6 +1,6 @@
 import Foundation
 import Observation
-import Translation
+@preconcurrency import Translation
 import TriamailKit
 
 /// Automatic translation of foreign mails into French, on the Mac (Translation framework).
