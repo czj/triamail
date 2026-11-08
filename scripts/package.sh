@@ -23,7 +23,7 @@ xcodegen generate
 
 xcodebuild -project Triamail.xcodeproj -scheme Triamail -configuration Release \
   -destination 'platform=macOS' -derivedDataPath build \
-  CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual \
+  CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
   MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
   SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}" build > build.log 2>&1 \
   || { grep -E ": error: " build.log | sort -u; tail -40 build.log; exit 1; }
