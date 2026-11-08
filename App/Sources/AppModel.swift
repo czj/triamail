@@ -24,17 +24,48 @@ final class AppModel {
     /// Connected Gmail accounts on this Mac (their tokens are in this Mac's keychain).
     private(set) var accounts: [GmailAccount] = []
 
+    /// `-demo` launch argument: a fake `exemple.com` account whose mails live in memory, and settings in a
+    /// temporary folder. Every action works (archive, invoice, summary, reply) and nothing real is read or
+    /// changed: not the Gmail accounts, the keychain, the shared settings nor the archive folders.
+    static let isDemo = ProcessInfo.processInfo.arguments.contains("-demo")
+    /// `-demo -demoSelection demo-2`: the mail selected at launch, for screenshots.
+    let initialSelection = AppModel.isDemo ? UserDefaults.standard.string(forKey: "demoSelection") : nil
+    /// Gmail, or the in-memory sample in demo mode: the only place that knows which.
+    let mailSource: any MailSource
+    /// Shared by every window: the inbox, and replies and summaries in progress per mail.
+    let inbox: InboxModel
+    let replies: ReplyModel
+    let summaries: SummaryModel
+
     init() {
-        let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
+        let source: any MailSource = Self.isDemo ? SampleMailSource() : GmailSource()
+        mailSource = source
+        inbox = InboxModel(source: source)
+        replies = ReplyModel(source: source)
+        summaries = SummaryModel(source: source)
+        if Self.isDemo {
+            // A throwaway preferences domain, reset at each launch: the fake account, demo settings in a temporary folder.
+            defaults = UserDefaults(suiteName: "io.github.czj.triamail.demo") ?? .standard
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Triamail-demo", isDirectory: true)
+            try? SettingsStore(folder: folder).save(.demo(in: folder))
+            defaults.set(folder.path, forKey: Self.settingsFolderKey)
+            defaults.set(try? JSONEncoder().encode([SampleMailSource.account]), forKey: Self.accountsKey)
+        } else {
+            defaults = .standard
+        }
+        let path = defaults.string(forKey: Self.settingsFolderKey)
         store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
         reload()
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.flush() }
         }
-        if let data = UserDefaults.standard.data(forKey: Self.accountsKey) {
+        if let data = defaults.data(forKey: Self.accountsKey) {
             accounts = (try? JSONDecoder().decode([GmailAccount].self, from: data)) ?? []
         }
     }
+
+    /// This Mac's own preferences: the settings folder and the connected accounts.
+    private let defaults: UserDefaults
 
     /// Where the last "Ajouter un compte Google" stands: in the browser, connected, or the error.
     private(set) var signInMessage: String?
@@ -44,6 +75,10 @@ final class AppModel {
     /// False when no OAuth client is saved yet: the caller asks for it, then calls again.
     /// Clicking again while the browser is open starts over (closed tab, wrong account…).
     func addGoogleAccount() -> Bool {
+        guard !Self.isDemo else {
+            signInMessage = "Mode démo : relance Triamail sans -demo pour connecter un vrai compte."
+            return true
+        }
         let authenticator = GmailAuthenticator()
         guard authenticator.client != nil else { return false }
         signInTask?.cancel()
@@ -65,14 +100,17 @@ final class AppModel {
     }
 
     func removeAccount(_ account: GmailAccount) {
-        Task { try? await GmailAuthenticator().signOut(account) }
+        // The demo account has no token; a real one with the same address keeps its own.
+        if !Self.isDemo {
+            Task { try? await GmailAuthenticator().signOut(account) }
+        }
         accounts.removeAll { $0 == account }
         saveAccounts()
         signInMessage = nil
     }
 
     private func saveAccounts() {
-        UserDefaults.standard.set(try? JSONEncoder().encode(accounts), forKey: Self.accountsKey)
+        defaults.set(try? JSONEncoder().encode(accounts), forKey: Self.accountsKey)
     }
 
     var settingsFolderPath: String { store.folder.path.abbreviatingHomeDirectory }
@@ -124,7 +162,7 @@ final class AppModel {
 
     /// Points this Mac at another settings folder (this choice itself stays on this Mac).
     func useSettingsFolder(_ folder: URL) {
-        UserDefaults.standard.set(folder.path, forKey: Self.settingsFolderKey)
+        defaults.set(folder.path, forKey: Self.settingsFolderKey)
         store = SettingsStore(folder: folder)
         reload()
     }
