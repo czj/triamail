@@ -25,6 +25,7 @@ Principes :
 - Mail : API Gmail d'abord, IMAP plus tard.
 - IA : modèle local d'Apple par défaut, API Mistral en option.
 - Rien de personnel en dur : tout se règle dans l'app.
+- Mises à jour : Sparkle 2 (flux appcast signé EdDSA, publié avec chaque release GitHub). La clé privée EdDSA reste dans le trousseau et dans les secrets GitHub, jamais dans le dépôt.
 
 ## Langue
 Le code, les noms de types et les commentaires sont en anglais ; la documentation et les textes de l'interface sont en français.
