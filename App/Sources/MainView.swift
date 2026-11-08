@@ -7,6 +7,7 @@ struct MainView: View {
     @Environment(AppModel.self) private var model
     @State private var inbox = InboxModel()
     @State private var translations = TranslationModel()
+    @State private var replies = ReplyModel()
     @State private var mailbox: Mailbox? = .toTriage
     @State private var selection: MailMessage.ID?
     @State private var tidying = false
@@ -24,7 +25,7 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360)
         } detail: {
             if let message = selectedMessage {
-                MessageDetailView(message: message, translations: translations, settings: model.settings) {
+                MessageDetailView(message: message, translations: translations, replies: replies, settings: model.settings) {
                     Task { await inbox.markDone(message) }
                 }
             } else {
@@ -137,7 +138,9 @@ struct MessageDetailView: View {
 
     let message: MailMessage
     let translations: TranslationModel
+    let replies: ReplyModel
     let settings: SharedSettings
+    @State private var replying = false
     let markDone: () -> Void
     @State private var reminderStatus: String?
     @State private var choosingReminderDate = false
@@ -155,6 +158,8 @@ struct MessageDetailView: View {
             }
         }
         .id(message.id)
+        .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies) }
+        .sheet(isPresented: $replying) { ReplySheet(message: message, replies: replies) }
         .safeAreaInset(edge: .bottom) {
             if let reminderStatus {
                 Label(reminderStatus, systemImage: "bell")
@@ -192,6 +197,10 @@ struct MessageDetailView: View {
                     Link(destination: link) { Label("Ouvrir dans le navigateur", systemImage: "safari") }
                         .help(link.absoluteString)
                 }
+            }
+            ToolbarItem {
+                Button("Répondre avec l'IA", systemImage: "sparkles") { replying = true }
+                    .keyboardShortcut("r", modifiers: [.command, .shift])
             }
             ToolbarItem {
                 Menu("Rappel", systemImage: "bell") {
