@@ -11,13 +11,13 @@ struct SettingsView: View {
                 placeholder("Comptes Gmail", "La connexion à Gmail arrive dans une prochaine version.")
             }
             Tab("Archivage", systemImage: "folder") {
-                placeholder("Dossiers et règles", "Les dossiers locaux et les règles de rangement arrivent dans une prochaine version.")
+                ArchiveSettingsView()
             }
             Tab("IA", systemImage: "sparkles") {
                 placeholder("Modèles d'IA", "Modèle local de macOS ou API Mistral.")
             }
         }
-        .frame(width: 560, height: 340)
+        .frame(width: 640, height: 520)
     }
 
     private func placeholder(_ title: LocalizedStringKey, _ message: LocalizedStringKey) -> some View {
