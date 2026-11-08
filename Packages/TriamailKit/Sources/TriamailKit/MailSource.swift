@@ -1,3 +1,5 @@
+import CoreGraphics
+import CoreText
 import Foundation
 
 /// Where the mails come from and where actions go: Gmail, or the in-memory sample of `-demo` and tests.
@@ -79,7 +81,7 @@ public actor SampleMailSource: MailSource {
     }
 
     public func thread(of message: MailMessage) -> [MailMessage] {
-        [message]
+        (messages.filter { $0.threadID == message.threadID && $0.id != message.id } + [message]).sorted { $0.date < $1.date }
     }
 
     public func createDraft(_ reply: ReplyDraft) -> String {
@@ -101,34 +103,21 @@ public actor SampleMailSource: MailSource {
     }
 }
 
-/// A one-page PDF with a few lines of text, written by hand: the sample invoice.
+/// A one-page PDF with a few lines of text: the sample invoice.
 enum SamplePDF {
     static func make(lines: [String]) -> Data {
-        // Helvetica in PDF strings: ASCII only, with ( ) \ escaped.
-        let text = lines.enumerated().map { index, line in
-            let ascii = line.folding(options: .diacriticInsensitive, locale: nil).unicodeScalars
-                .map { $0.isASCII ? String($0) : "?" }.joined()
-                .replacingOccurrences(of: "\\", with: "\\\\")
-                .replacingOccurrences(of: "(", with: "\\(").replacingOccurrences(of: ")", with: "\\)")
-            return "BT /F1 \(index == 0 ? 20 : 12) Tf 56 \(780 - index * 28) Td (\(ascii)) Tj ET"
-        }.joined(separator: "\n")
-        let objects = [
-            "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
-            "<< /Length \(text.utf8.count) >>\nstream\n\(text)\nendstream",
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-        ]
-        var pdf = "%PDF-1.4\n"
-        var offsets: [Int] = []
-        for (index, object) in objects.enumerated() {
-            offsets.append(pdf.utf8.count)
-            pdf += "\(index + 1) 0 obj\n\(object)\nendobj\n"
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: 595, height: 842)
+        guard let consumer = CGDataConsumer(data: data), let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { return Data() }
+        context.beginPDFPage(nil)
+        for (index, line) in lines.enumerated() {
+            let font = CTFontCreateWithName("Helvetica" as CFString, index == 0 ? 20 : 12, nil)
+            let text = NSAttributedString(string: line, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font])
+            context.textPosition = CGPoint(x: 56, y: 780 - CGFloat(index) * 28)
+            CTLineDraw(CTLineCreateWithAttributedString(text), context)
         }
-        let xref = pdf.utf8.count
-        pdf += "xref\n0 \(objects.count + 1)\n0000000000 65535 f \n"
-        pdf += offsets.map { String(format: "%010d 00000 n \n", $0) }.joined()
-        pdf += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xref)\n%%EOF\n"
-        return Data(pdf.utf8)
+        context.endPDFPage()
+        context.closePDF()
+        return data as Data
     }
 }

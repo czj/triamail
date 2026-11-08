@@ -24,9 +24,12 @@ final class AppModel {
     /// Connected Gmail accounts on this Mac (their tokens are in this Mac's keychain).
     private(set) var accounts: [GmailAccount] = []
 
-    /// `-demo` launch argument: a fake `exemple.com` account whose mails live in memory. Every action works
-    /// (archive, invoice, summary, reply) and the real Gmail accounts are neither read nor changed.
+    /// `-demo` launch argument: a fake `exemple.com` account whose mails live in memory, and settings in a
+    /// temporary folder. Every action works (archive, invoice, summary, reply) and nothing real is read or
+    /// changed: not the Gmail accounts, the keychain, the shared settings nor the archive folders.
     static let isDemo = ProcessInfo.processInfo.arguments.contains("-demo")
+    /// `-demo -demoSelection demo-2`: the mail selected at launch, for screenshots.
+    let initialSelection = AppModel.isDemo ? UserDefaults.standard.string(forKey: "demoSelection") : nil
     /// Gmail, or the in-memory sample in demo mode: the only place that knows which.
     let mailSource: any MailSource
     /// Shared by every window: the inbox, and replies and summaries in progress per mail.
@@ -40,8 +43,14 @@ final class AppModel {
         inbox = InboxModel(source: source)
         replies = ReplyModel(source: source)
         summaries = SummaryModel(source: source)
-        let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
-        store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
+        if Self.isDemo {
+            let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Triamail-demo", isDirectory: true)
+            store = SettingsStore(folder: folder)
+            try? store.save(.demo(in: folder))
+        } else {
+            let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
+            store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
+        }
         reload()
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.flush() }
@@ -61,6 +70,10 @@ final class AppModel {
     /// False when no OAuth client is saved yet: the caller asks for it, then calls again.
     /// Clicking again while the browser is open starts over (closed tab, wrong account…).
     func addGoogleAccount() -> Bool {
+        guard !Self.isDemo else {
+            signInMessage = "Mode démo : relance Triamail sans -demo pour connecter un vrai compte."
+            return true
+        }
         let authenticator = GmailAuthenticator()
         guard authenticator.client != nil else { return false }
         signInTask?.cancel()
@@ -82,7 +95,10 @@ final class AppModel {
     }
 
     func removeAccount(_ account: GmailAccount) {
-        Task { try? await GmailAuthenticator().signOut(account) }
+        // The demo account has no token; a real one with the same address keeps its own.
+        if !Self.isDemo {
+            Task { try? await GmailAuthenticator().signOut(account) }
+        }
         accounts.removeAll { $0 == account }
         saveAccounts()
         signInMessage = nil
@@ -143,7 +159,7 @@ final class AppModel {
 
     /// Points this Mac at another settings folder (this choice itself stays on this Mac).
     func useSettingsFolder(_ folder: URL) {
-        UserDefaults.standard.set(folder.path, forKey: Self.settingsFolderKey)
+        if !Self.isDemo { UserDefaults.standard.set(folder.path, forKey: Self.settingsFolderKey) }
         store = SettingsStore(folder: folder)
         reload()
     }

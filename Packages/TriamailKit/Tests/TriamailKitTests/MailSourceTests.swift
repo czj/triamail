@@ -38,5 +38,16 @@ import Testing
         let text = try #require(PDFText.extract(from: data))
         #expect(text.contains("2026-118"))
         #expect(text.contains("Boutique Exemple"))
+        #expect(text.contains("n° 2026-118"))
+    }
+
+    @Test func demoSettingsFileTheSampleInvoice() throws {
+        let folder = URL(fileURLWithPath: "/tmp/triamail-demo-test", isDirectory: true)
+        let settings = SharedSettings.demo(in: folder)
+        let invoice = try #require(MailMessage.samples.first { !$0.attachments.isEmpty })
+        let document = Document(fileName: invoice.attachments[0].fileName, sender: invoice.from, date: invoice.date, text: { nil })
+        let plan = try #require(ArchivePlanner(folders: settings.archiveFolders, rules: settings.archiveRules).plan(for: document))
+        #expect(plan.destination.path.hasPrefix(folder.path))
+        #expect(plan.folder.accountingEmail?.hasSuffix("@exemple.com") == true)
     }
 }

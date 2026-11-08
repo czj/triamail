@@ -67,8 +67,7 @@ struct MainView: View {
         }
         .task(id: model.accounts) {
             await inbox.refresh(accounts: model.accounts)
-            // `-demo -demoSelection demo-2`: open on a given mail, for screenshots.
-            if selection == nil { selection = UserDefaults.standard.string(forKey: "demoSelection") }
+            if selection == nil { selection = model.initialSelection }
         }
         .task(id: inbox.messages.map(\.id)) { await translations.process(inbox.messages) }
     }

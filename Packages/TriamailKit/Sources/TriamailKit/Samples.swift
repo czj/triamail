@@ -1,5 +1,24 @@
 import Foundation
 
+extension SharedSettings {
+    /// Demo settings, kept in `folder` (a temporary one): a fake profile, and an archive rule for the
+    /// sample invoice that files it in `folder/Factures` and "sends" it to a fake accounting address.
+    public static func demo(in folder: URL) -> SharedSettings {
+        let invoices = ArchiveFolder(name: "Factures (démo)", path: folder.appendingPathComponent("Factures").path,
+                                     accountingEmail: "comptabilite@exemple.com")
+        var settings = SharedSettings(
+            archiveFolders: [invoices],
+            archiveRules: [ArchiveRule(senderContains: "commandes@exemple.com", folderID: invoices.id,
+                                       renameTo: "Facture Boutique Exemple", sendToAccounting: true)]
+        )
+        settings.profile.firstName = "Jeanne"
+        settings.profile.fullName = "Jeanne Exemple"
+        settings.profile.company = "Exemple SAS"
+        settings.profile.website = "https://exemple.com"
+        return settings
+    }
+}
+
 extension MailMessage {
     /// Fake mails for screenshots and UI work (`-demo` launch argument): never real data.
     public static var samples: [MailMessage] {
