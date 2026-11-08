@@ -14,6 +14,8 @@ struct InvoicePane: View {
     @State private var fileName = ""
     @State private var status: String?
     @State private var working = false
+    /// Set once the PDF is in its folder: a retry after a failed send only retries the send.
+    @State private var saved: URL?
 
     private let authenticator = GmailAuthenticator()
 
@@ -67,6 +69,7 @@ struct InvoicePane: View {
     private func prepare() async {
         pdf = nil
         plan = nil
+        saved = nil
         status = nil
         do {
             let token = try await authenticator.accessToken(for: GmailAccount(email: message.account))
@@ -77,7 +80,7 @@ struct InvoicePane: View {
                 fileName = attachment.fileName
             } else {
                 // The invoice is the mail itself: print it to PDF.
-                data = try await HTMLToPDF.render(message.html ?? "<pre>\(message.plainText)</pre>")
+                data = try await HTMLToPDF.render(message.html ?? "<pre>\(message.plainText.htmlEscaped)</pre>")
                 fileName = "\(message.subject).pdf"
             }
             pdf = data
@@ -94,7 +97,8 @@ struct InvoicePane: View {
         working = true
         defer { working = false }
         do {
-            let saved = try Archiver.write(pdf, plan: plan)
+            let saved = try self.saved ?? Archiver.write(pdf, plan: plan)
+            self.saved = saved
             status = "Enregistrée : \(saved.lastPathComponent)"
             if plan.rule.sendToAccounting, let address = plan.folder.accountingEmail, !address.isEmpty {
                 let token = try await authenticator.accessToken(for: GmailAccount(email: message.account))
@@ -163,5 +167,11 @@ enum HTMLToPDF {
             continuation?.resume(throwing: error)
             continuation = nil
         }
+    }
+}
+
+private extension String {
+    var htmlEscaped: String {
+        replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
     }
 }
