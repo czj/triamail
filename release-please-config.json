@@ -4,6 +4,9 @@
     ".": {
       "release-type": "simple",
       "package-name": "Triamail",
+      "include-component-in-tag": false,
+      "draft": true,
+      "force-tag-creation": true,
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "changelog-sections": [
