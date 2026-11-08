@@ -15,13 +15,28 @@ final class InboxModel {
         guard !loading else { return }
         loading = true
         defer { loading = false }
+        let authenticator = authenticator
+        // Every account at once: the refresh lasts as long as the slowest one, not their sum.
+        let results = await withTaskGroup(of: Result<[MailMessage], AccountError>.self) { group in
+            for account in accounts {
+                group.addTask {
+                    do {
+                        return .success(try await authenticator.api(for: account).inbox(account: account.email))
+                    } catch {
+                        return .failure(AccountError(message: "\(account.email) : \(error.localizedDescription)"))
+                    }
+                }
+            }
+            var collected: [Result<[MailMessage], AccountError>] = []
+            for await result in group { collected.append(result) }
+            return collected
+        }
         var all: [MailMessage] = []
         var failures: [String] = []
-        for account in accounts {
-            do {
-                all += try await authenticator.api(for: account).inbox(account: account.email)
-            } catch {
-                failures.append("\(account.email) : \(error.localizedDescription)")
+        for result in results {
+            switch result {
+            case let .success(messages): all += messages
+            case let .failure(error): failures.append(error.message)
             }
         }
         messages = all.sorted { $0.date > $1.date }
@@ -41,4 +56,8 @@ final class InboxModel {
             self.error = "Impossible d'archiver : \(error.localizedDescription)"
         }
     }
+}
+
+private struct AccountError: Error {
+    var message: String
 }
