@@ -23,7 +23,7 @@ struct MainView: View {
                 .navigationSplitViewColumnWidth(min: 300, ideal: 360)
         } detail: {
             if let message = selectedMessage {
-                MessageDetailView(message: message, translations: translations, remindersList: model.settings.remindersListName) {
+                MessageDetailView(message: message, translations: translations, settings: model.settings) {
                     Task { await inbox.markDone(message) }
                 }
             } else {
@@ -127,11 +127,11 @@ private struct MessageRow: View {
 }
 
 struct MessageDetailView: View {
-    enum Pane: Hashable { case mail, translation, page }
+    enum Pane: Hashable { case mail, translation, page, invoice }
 
     let message: MailMessage
     let translations: TranslationModel
-    let remindersList: String?
+    let settings: SharedSettings
     let markDone: () -> Void
     @State private var reminderStatus: String?
     @State private var choosingReminderDate = false
@@ -143,6 +143,7 @@ struct MessageDetailView: View {
         Group {
             switch visiblePane {
             case .page: if let link = message.primaryLink { WebPanel(url: link) }
+            case .invoice: InvoicePane(message: message, settings: settings, markDone: markDone)
             case .translation: translationBody
             case .mail: mailBody
             }
@@ -171,6 +172,7 @@ struct MessageDetailView: View {
                         ForEach(panes, id: \.self) { pane in
                             switch pane {
                             case .page: Text("Page").tag(pane)
+                            case .invoice: Text("Facture").tag(pane)
                             case .translation: Text("Traduction").tag(pane)
                             case .mail: Text("Mail").tag(pane)
                             }
@@ -218,7 +220,7 @@ struct MessageDetailView: View {
     private func addReminder(_ delay: ReminderDelay) {
         Task {
             do {
-                let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: remindersList)
+                let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: settings.remindersListName)
                 reminderStatus = "Rappel \(delay.title) créé dans « \(list) »"
             } catch {
                 reminderStatus = error.localizedDescription
@@ -227,7 +229,8 @@ struct MessageDetailView: View {
     }
 
     private var panes: [Pane] {
-        (message.primaryLink != nil ? [.page] : []) + (translations.language(of: message) != nil ? [.translation] : []) + [.mail]
+        (Mailbox.invoices.contains(message) ? [.invoice] : [])
+            + (message.primaryLink != nil ? [.page] : []) + (translations.language(of: message) != nil ? [.translation] : []) + [.mail]
     }
 
     /// The chosen pane if this mail has it, else the first one (page, then translation, then mail).

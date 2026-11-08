@@ -14,13 +14,16 @@ public struct ArchiveFolder: Codable, Hashable, Identifiable, Sendable {
     /// Prefix file names with "yyyy-MM-dd - ".
     public var datePrefix: Bool
     public var subfolder: Subfolder
+    /// Where invoices archived here are sent for accounting (an import address), if any.
+    public var accountingEmail: String?
 
-    public init(id: UUID = UUID(), name: String, path: String, datePrefix: Bool = true, subfolder: Subfolder = .none) {
+    public init(id: UUID = UUID(), name: String, path: String, datePrefix: Bool = true, subfolder: Subfolder = .none, accountingEmail: String? = nil) {
         self.id = id
         self.name = name
         self.path = path
         self.datePrefix = datePrefix
         self.subfolder = subfolder
+        self.accountingEmail = accountingEmail
     }
 
     public var url: URL { URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true) }
