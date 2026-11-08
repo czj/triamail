@@ -71,3 +71,13 @@ import Testing
         #expect(try await receiver.callback().authorizationCode(expectedState: "s") == "c")
     }
 }
+
+@Suite struct SignInTimeoutTests {
+    @Test func abandonedSignInTimesOut() async throws {
+        let receiver = try LoopbackReceiver()
+        _ = try await receiver.start()
+        await #expect(throws: OAuthFailure.self) {
+            try await GmailAuthenticator.callback(from: receiver, timeout: .milliseconds(200))
+        }
+    }
+}
