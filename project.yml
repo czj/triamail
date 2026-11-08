@@ -43,7 +43,10 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
         INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "Triamail crée des rappels pour les mails à suivre (J+1, J+3, J+7 ou une date)."
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
-        ENABLE_HARDENED_RUNTIME: YES
+        # Off for ad hoc signatures: library validation would reject the embedded Sparkle
+        # (no Team ID on either side) and macOS 27 kills the app at launch.
+        # scripts/package.sh turns it on when signing with a Developer ID (notarization needs it).
+        ENABLE_HARDENED_RUNTIME: NO
         # No sandbox: the app writes to the chosen folders and listens on 127.0.0.1 for OAuth.
         ENABLE_APP_SANDBOX: NO
         CODE_SIGN_IDENTITY: "-"
