@@ -47,21 +47,26 @@ final class TranslationModel {
 
     private func translate(_ message: MailMessage, from language: Locale.Language, with session: TranslationSession) async {
         states[message.id] = .translating
-        let paragraphs = LanguageDetector.paragraphs(of: message.plainText)
-        let requests = paragraphs.enumerated()
-            .filter { !$0.element.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map { TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset)) }
         do {
-            var translated = paragraphs
-            for response in try await session.translations(from: requests) {
-                if let index = response.clientIdentifier.flatMap(Int.init) {
-                    translated[index] = response.targetText
-                }
-            }
-            states[message.id] = .done(translated.joined(separator: "\n"))
+            let text = try await Self.translate(LanguageDetector.paragraphs(of: message.plainText), with: session)
+            states[message.id] = .done(text)
         } catch {
             states[message.id] = .failed(error.localizedDescription)
         }
+    }
+
+    /// Paragraph by paragraph, so the layout survives; blank lines stay blank.
+    nonisolated private static func translate(_ paragraphs: [String], with session: TranslationSession) async throws -> String {
+        let requests = paragraphs.enumerated()
+            .filter { !$0.element.trimmingCharacters(in: .whitespaces).isEmpty }
+            .map { TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset)) }
+        var translated = paragraphs
+        for response in try await session.translations(from: requests) {
+            if let index = response.clientIdentifier.flatMap(Int.init) {
+                translated[index] = response.targetText
+            }
+        }
+        return translated.joined(separator: "\n")
     }
 }
 
