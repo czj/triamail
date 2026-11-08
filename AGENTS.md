@@ -31,14 +31,14 @@ Principes :
 - Distribution : `scripts/package.sh` construit `Triamail.dmg` et les zips (signature Developer ID et notarisation si les secrets `DEVELOPER_ID_*` et `APPLE_*` existent, ad hoc sinon) ; la cask Homebrew `Casks/triamail.rb` pointe toujours sur la dernière release.
 
 ## Langue
-Le code, les noms de types et les commentaires sont en anglais ; la documentation et les textes de l'interface sont en français.
+Tout ce qui sert au développement est en anglais : code, noms de types, commentaires, messages de commit, titres et descriptions de PR, issues, commentaires sur GitHub. Seuls les textes de l'interface de l'app sont en français.
 
 ## Façon de travailler
 - Jamais de commit direct sur `main` : une branche, puis une pull request, fusionnée en squash. La règle de protection de `main` exige le seul contrôle « CI passed ».
 - Avant d'ouvrir une PR : lance `/code-review` puis `/simplify` sur le diff de la branche, corrige ce qu'ils trouvent (ou dis dans la PR pourquoi non), et seulement ensuite pousse. Les deux passes se refont après une grosse correction.
 - Sûr de toi : ouvre la PR prête et active l'auto-merge (`gh pr merge --auto --squash`), elle fusionne dès que la CI est verte. Pas encore : une PR en brouillon (elle ne lance pas la CI), puis `gh pr ready`.
 - Les actions GitHub sont épinglées par commit avec la version en commentaire ; Dependabot propose les mises à jour.
-- Messages de commit et titres de PR au format Conventional Commits, type en anglais et description en français : `feat: rappels J+1, J+3, J+7`, `fix: …`, `docs: …`, `chore: …`. `feat` et `fix` apparaissent dans le changelog ; `feat!` ou `BREAKING CHANGE` déclenche une version majeure.
+- Messages de commit et titres de PR au format Conventional Commits, en anglais : `feat: J+1, J+3, J+7 reminders`, `fix: …`, `docs: …`, `chore: …`. `feat` et `fix` apparaissent dans le changelog ; `feat!` ou `BREAKING CHANGE` déclenche une version majeure.
 - Ne modifie pas `CHANGELOG.md` ni les numéros de version à la main : release-please s'en charge à chaque fusion sur `main` (PR « chore(main): release x.y.z » à fusionner pour publier).
 - L'app se compile sur macOS uniquement. Dans une session cloud Linux, on ne peut pas compiler : pousse et lis le résultat de la CI (`gh run watch`).
 - Le projet Xcode est généré depuis `project.yml` par XcodeGen : modifie `project.yml`, jamais le `.xcodeproj` (non versionné). Toute logique testable va dans `Packages/TriamailKit`, avec ses tests (Swift Testing) ; l'app ne garde que l'interface.
