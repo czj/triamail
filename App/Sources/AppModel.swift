@@ -44,12 +44,13 @@ final class AppModel {
     /// False when no OAuth client is saved yet: the caller asks for it, then calls again.
     /// Clicking again while the browser is open starts over (closed tab, wrong account…).
     func addGoogleAccount() -> Bool {
-        guard GmailAuthenticator().client != nil else { return false }
+        let authenticator = GmailAuthenticator()
+        guard authenticator.client != nil else { return false }
         signInTask?.cancel()
         signInMessage = "Termine la connexion dans le navigateur…"
         signInTask = Task {
             do {
-                let account = try await GmailAuthenticator().signIn { url in
+                let account = try await authenticator.signIn { url in
                     await MainActor.run { _ = NSWorkspace.shared.open(url) }
                 }
                 if !accounts.contains(account) { accounts.append(account) }

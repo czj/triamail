@@ -14,6 +14,7 @@ struct MainView: View {
     @State private var selection: MailMessage.ID?
     @State private var search = ""
     @State private var tidying = false
+    @State private var askingClient = false
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
 
@@ -82,8 +83,9 @@ struct MainView: View {
             } description: {
                 Text(model.signInMessage ?? "Connecte un compte Google pour voir les mails à traiter.")
             } actions: {
-                AddGoogleAccountButton()
+                AddGoogleAccountButton(askingClient: $askingClient)
                     .buttonStyle(.borderedProminent)
+                    .oauthClientSheet(isPresented: $askingClient)
             }
         } else {
             let messages = visibleMessages

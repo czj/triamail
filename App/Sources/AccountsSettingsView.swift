@@ -8,6 +8,7 @@ struct AccountsSettingsView: View {
     @State private var clientSecret = ""
     /// Feedback on the OAuth client fields; the sign-in's own outcome is `model.signInMessage`.
     @State private var message: String?
+    @State private var askingClient = false
 
     private let authenticator = GmailAuthenticator()
 
@@ -21,7 +22,7 @@ struct AccountsSettingsView: View {
                         Button("Déconnecter") { model.removeAccount(account) }
                     }
                 }
-                AddGoogleAccountButton()
+                AddGoogleAccountButton(askingClient: $askingClient)
             } header: {
                 Text("Comptes Gmail")
             } footer: {
@@ -30,9 +31,7 @@ struct AccountsSettingsView: View {
                 }
             }
 
-            Section {
-                TextField("Identifiant client", text: $clientID, prompt: Text("….apps.googleusercontent.com"))
-                SecureField("Code secret du client", text: $clientSecret)
+            OAuthClientFields(clientID: $clientID, clientSecret: $clientSecret, message: message) {
                 Button("Enregistrer dans le trousseau") {
                     do {
                         try authenticator.saveClient(id: clientID, secret: clientSecret)
@@ -42,20 +41,12 @@ struct AccountsSettingsView: View {
                     }
                 }
                 .disabled(clientID.isEmpty || clientSecret.isEmpty)
-            } header: {
-                Text("Application Google (OAuth)")
-            } footer: {
-                VStack(alignment: .leading, spacing: 6) {
-                    OAuthClientHelp()
-                    if let message {
-                        Text(message).foregroundStyle(.secondary)
-                    }
-                }
             }
         }
         .formStyle(.grouped)
-        // Again after a sign-in: the client may have been pasted in the main window's sheet.
-        .task(id: model.accounts) {
+        .oauthClientSheet(isPresented: $askingClient)
+        // Again on each sign-in attempt: the client may have just been pasted in a sheet.
+        .task(id: model.signInMessage) {
             clientID = authenticator.clientID ?? ""
             clientSecret = authenticator.clientSecret ?? ""
         }
