@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  no-personal-data:
+    name: Aucune info personnelle ni secret
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Secrets (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Téléphones et adresses mail
+        run: |
+          # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques.
+          if git grep -nIE '(\+33|0033|\b0)[ .]?[1-9]([ .]?[0-9]{2}){4}' -- . ':!*.lock' \
+             | grep -vE '\+33 1 23 45 67 89|01 23 45 67 89'; then
+            echo "::error::Numéro de téléphone trouvé : voir AGENTS.md"; exit 1; fi
+          if git grep -nIE '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]{2,}' -- . \
+             | grep -vE '@(exemple\.com|example\.com|anthropic\.com|users\.noreply\.github\.com)'; then
+            echo "::error::Adresse mail trouvée : voir AGENTS.md"; exit 1; fi
+
+  build:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build et tests
+        run: |
+          if [ -f Package.swift ]; then
+            swift build && swift test
+          elif ls *.xcodeproj >/dev/null 2>&1; then
+            xcodebuild -scheme Triamail -destination 'platform=macOS' \
+              CODE_SIGNING_ALLOWED=NO build test
+          else
+            echo "Pas encore de code à compiler."
+          fi

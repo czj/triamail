@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.rp.outputs.release_created }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build-app:
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Construire l'app
+        run: |
+          if ! ls *.xcodeproj >/dev/null 2>&1; then
+            echo "Pas encore de projet Xcode : rien à joindre."; exit 0; fi
+          xcodebuild -scheme Triamail -configuration Release \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          APP=$(find build -name 'Triamail.app' -maxdepth 6 | head -1)
+          ditto -c -k --keepParent "$APP" Triamail.zip
+          gh release upload "${{ needs.release-please.outputs.tag }}" Triamail.zip --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

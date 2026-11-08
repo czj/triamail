@@ -28,3 +28,10 @@ Principes :
 
 ## Langue
 Le code, les noms de types et les commentaires sont en anglais ; la documentation et les textes de l'interface sont en français.
+
+## Façon de travailler
+- Jamais de commit direct sur `main` : une branche, puis une pull request. La CI doit passer avant la fusion.
+- Messages de commit et titres de PR au format Conventional Commits, type en anglais et description en français : `feat: rappels J+1, J+3, J+7`, `fix: …`, `docs: …`, `chore: …`. `feat` et `fix` apparaissent dans le changelog ; `feat!` ou `BREAKING CHANGE` déclenche une version majeure.
+- Ne modifie pas `CHANGELOG.md` ni les numéros de version à la main : release-please s'en charge à chaque fusion sur `main` (PR « chore(main): release x.y.z » à fusionner pour publier).
+- L'app se compile sur macOS uniquement. Dans une session cloud Linux, on ne peut pas compiler : pousse et lis le résultat de la CI (`gh run watch`).
+- Tiens `README.md` à jour quand une fonction visible change.
