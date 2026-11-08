@@ -10,8 +10,14 @@ final class InboxModel {
     var error: String?
 
     private let authenticator = GmailAuthenticator()
+    /// `-demo` launch argument: fake mails, nothing sent to Gmail (screenshots, UI work).
+    static let demo = ProcessInfo.processInfo.arguments.contains("-demo")
 
     func refresh(accounts: [GmailAccount]) async {
+        if Self.demo {
+            messages = MailMessage.samples
+            return
+        }
         guard !loading else { return }
         loading = true
         defer { loading = false }
@@ -49,6 +55,10 @@ final class InboxModel {
 
     /// The mail leaves the list (archived in Gmail, never deleted).
     func markDone(_ message: MailMessage) async {
+        if Self.demo {
+            messages.removeAll { $0.id == message.id }
+            return
+        }
         do {
             try await authenticator.api(for: message.gmailAccount).archive(messageID: message.id)
             messages.removeAll { $0.id == message.id }
