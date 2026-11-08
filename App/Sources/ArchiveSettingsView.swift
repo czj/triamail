@@ -106,6 +106,8 @@ private struct FolderRow: View {
                     .truncationMode(.middle)
                     .lineLimit(1)
             }
+            TextField("Adresse de la comptabilité", text: $folder.accountingEmail.orEmpty, prompt: Text("import@exemple.com (facultatif)"))
+                .controlSize(.small)
             HStack {
                 Toggle("Préfixe de date", isOn: $folder.datePrefix)
                 Picker("Sous-dossier", selection: $folder.subfolder) {
