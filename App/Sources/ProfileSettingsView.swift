@@ -45,7 +45,6 @@ struct ProfileSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .onChange(of: model.settings.profile) { model.save() }
         .task { templates = (try? model.store.templates()) ?? [] }
     }
 }

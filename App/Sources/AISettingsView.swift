@@ -38,7 +38,5 @@ struct AISettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear { mistralKey = MistralClient.storedKey() ?? "" }
-        .onChange(of: model.settings.aiProvider) { model.save() }
-        .onChange(of: model.settings.mistralModel) { model.save() }
     }
 }

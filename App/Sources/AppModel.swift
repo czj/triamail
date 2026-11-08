@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import TriamailKit
@@ -9,7 +10,14 @@ final class AppModel {
     private static let accountsKey = "gmailAccounts"
 
     private(set) var store: SettingsStore
-    var settings = SharedSettings()
+    /// Every change is saved by the model itself, half a second after the last edit:
+    /// no view has to remember to save, and typing does not rewrite the iCloud file per keystroke.
+    var settings = SharedSettings() {
+        didSet { if settings != oldValue { scheduleSave() } }
+    }
+    private var saveTask: Task<Void, Never>?
+    /// While loading from disk, the change is not an edit to save back.
+    private var loading = false
     var lastError: String?
     /// True when reglages.json exists but could not be read: saving would overwrite it with defaults.
     private var loadFailed = false
@@ -20,6 +28,9 @@ final class AppModel {
         let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
         store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
         reload()
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.flush() }
+        }
         if let data = UserDefaults.standard.data(forKey: Self.accountsKey) {
             accounts = (try? JSONDecoder().decode([GmailAccount].self, from: data)) ?? []
         }
@@ -43,6 +54,9 @@ final class AppModel {
     var settingsFolderPath: String { store.folder.path.abbreviatingHomeDirectory }
 
     func reload() {
+        loading = true
+        defer { loading = false }
+        saveTask?.cancel()
         do {
             settings = try store.load()
             loadFailed = false
@@ -54,6 +68,24 @@ final class AppModel {
             loadFailed = true
             lastError = "Impossible de lire les réglages : \(error.localizedDescription). Rien ne sera enregistré tant que le fichier n'est pas corrigé."
         }
+    }
+
+    private func scheduleSave() {
+        guard !loading else { return }
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            save()
+        }
+    }
+
+    /// Writes now: pending edits are not lost when the app quits.
+    func flush() {
+        guard saveTask != nil else { return }
+        saveTask?.cancel()
+        saveTask = nil
+        save()
     }
 
     func save() {

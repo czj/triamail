@@ -96,7 +96,6 @@ struct ArchiveSettingsView: View {
                 }
             }
         }
-        .onChange(of: model.settings) { model.save() }
     }
 
     private func folderName(_ id: ArchiveFolder.ID) -> String {
