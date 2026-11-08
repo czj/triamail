@@ -1,66 +1,68 @@
 # Triamail
 
-Client mail macOS pour trier les mails et agir dessus, sans quitter la liste :
+A macOS mail client for triaging email and acting on it, without leaving the list:
 
-- ouvrir la page d'une notification (GitHub…) dans un panneau à droite ;
-- lancer une session Claude Code sur le dépôt lié ;
-- préparer une réponse avec l'IA à partir d'un modèle, déposée en brouillon ;
-- créer un rappel (J+1, J+3, J+7 ou date au choix) dans l'app Rappels ;
-- archiver une facture (renommer, ranger, transmettre à la comptabilité) ;
-- traduire automatiquement, en local, les mails en langue étrangère ;
-- résumer un mail ou tout un fil ;
-- ranger Téléchargements, Bureau et scans avec les mêmes règles que les factures.
+- open a notification's page (GitHub…) in a right-hand panel;
+- launch a Claude Code session on the linked repository;
+- draft an AI reply from a template, saved as a draft;
+- create a reminder (D+1, D+3, D+7 or a chosen date) in the Reminders app;
+- archive an invoice (rename, file, forward to accounting);
+- automatically translate foreign-language emails, locally;
+- summarize an email or a whole thread;
+- tidy Downloads, Desktop and scans with the same rules as invoices.
 
-Triamail cohabite avec un client mail classique : il sert au tri, pas à la lecture.
+Triamail sits next to a regular mail client: it is for triage, not for reading.
 
-**État** : toutes les fonctions de la première feuille de route sont là ; l'app n'a pas encore été éprouvée au quotidien.
+The app's interface is in French.
 
-## Mise en route
+**Status**: every feature of the first roadmap is in; the app has not yet been proven in daily use.
 
-1. **Gmail** : dans la console Google Cloud, crée un projet, active l'API Gmail, crée un identifiant OAuth « Application de bureau », puis passe l'écran de consentement en production. Colle l'identifiant et son code secret dans Réglages > Comptes (ils vont dans le trousseau), puis connecte tes comptes.
-2. **Réglages** : le dossier de réglages (par défaut dans iCloud Drive) contient `reglages.json` et les modèles de réponse ; il se partage entre tes Mac.
-3. **Archivage** : déclare tes dossiers locaux et tes règles dans Réglages > Archivage.
-4. **IA** : modèle local de macOS (Apple Intelligence) ou clé Mistral, dans Réglages > IA.
+## Getting started
 
-## Installer
+1. **Gmail**: in the Google Cloud console, create a project, enable the Gmail API, create a "Desktop app" OAuth client ID, then publish the consent screen to production. Paste the client ID and its secret into Réglages > Comptes (Settings > Accounts; they go into the keychain), then connect your accounts.
+2. **Settings**: the settings folder (in iCloud Drive by default) holds `reglages.json` and the reply templates; it is shared between your Macs.
+3. **Archiving**: declare your local folders and your rules in Réglages > Archivage (Settings > Archiving).
+4. **AI**: macOS's local model (Apple Intelligence) or a Mistral key, in Réglages > IA (Settings > AI).
 
-Il faut macOS 26 (Tahoe) ou plus récent.
+## Install
 
-- **Homebrew** :
+Requires macOS 26 (Tahoe) or later.
+
+- **Homebrew**:
 
   ```bash
   brew tap czj/triamail https://github.com/czj/triamail
   brew install --cask triamail
   ```
 
-- **À la main** : télécharge [`Triamail.dmg`](https://github.com/czj/triamail/releases/latest/download/Triamail.dmg), ouvre-le et glisse Triamail dans Applications. Tant que les releases ne sont pas notarisées par Apple, macOS bloque le premier lancement : Réglages Système > Confidentialité et sécurité > « Ouvrir quand même ».
+- **Manually**: download [`Triamail.dmg`](https://github.com/czj/triamail/releases/latest/download/Triamail.dmg), open it and drag Triamail into Applications. Until releases are notarized by Apple, macOS blocks the first launch: System Settings > Privacy & Security > "Open Anyway".
 
-Ensuite, l'app se met à jour d'elle-même (Triamail > Rechercher les mises à jour…).
+After that, the app updates itself (Triamail > Rechercher les mises à jour…, i.e. Check for Updates).
 
-## Publier une version
+## Publishing a release
 
-Tout part des messages de commit (Conventional Commits) :
+Everything starts from the commit messages (Conventional Commits):
 
-1. à chaque fusion sur `main`, release-please tient à jour une PR « chore(main): release x.y.z » avec le changelog ;
-2. fusionner cette PR crée le tag et la release GitHub ; le workflow `Release` y construit l'app sur macOS et joint `Triamail.dmg`, `Triamail.zip` et le flux de mises à jour `appcast.xml`.
+1. on every merge to `main`, release-please keeps a "chore(main): release x.y.z" PR up to date with the changelog;
+2. merging that PR creates the tag and the GitHub release; the `Release` workflow then builds the app on macOS and attaches `Triamail.dmg`, `Triamail.zip` and the `appcast.xml` update feed.
 
-Pour essayer l'empaquetage sans publier : Actions > Release > Run workflow (sur n'importe quelle branche) ; le DMG est joint au run. En local : `scripts/package.sh 0.1.0`.
+To try the packaging without publishing: Actions > Release > Run workflow (on any branch); the DMG is attached to the run. Locally: `scripts/package.sh 0.1.0`.
 
-Réglages du dépôt (Settings > Secrets and variables > Actions) :
+Repository settings (Settings > Secrets and variables > Actions):
 
-| Nom | Type | Rôle |
+| Name | Type | Purpose |
 | --- | --- | --- |
-| `SPARKLE_PUBLIC_KEY` | variable | clé publique EdDSA, inscrite dans l'app |
-| `SPARKLE_PRIVATE_KEY` | secret | signe le flux de mises à jour |
-| `DEVELOPER_ID_CERTIFICATE` | secret | facultatif : certificat « Developer ID Application » exporté en `.p12`, en base64 (`base64 -i cert.p12 \| pbcopy`) |
-| `DEVELOPER_ID_CERTIFICATE_PASSWORD` | secret | mot de passe du `.p12` |
-| `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | secrets | notarisation : identifiant Apple, mot de passe d'app (appleid.apple.com), identifiant d'équipe |
+| `SPARKLE_PUBLIC_KEY` | variable | EdDSA public key, embedded in the app |
+| `SPARKLE_PRIVATE_KEY` | secret | signs the update feed |
+| `DEVELOPER_ID_CERTIFICATE` | secret | optional: "Developer ID Application" certificate exported as `.p12`, base64-encoded (`base64 -i cert.p12 \| pbcopy`) |
+| `DEVELOPER_ID_CERTIFICATE_PASSWORD` | secret | password of the `.p12` |
+| `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` | secrets | notarization: Apple ID, app-specific password (appleid.apple.com), team ID |
 
-Les clés Sparkle se créent une fois avec l'outil `generate_keys` de Sparkle (`generate_keys -x cle-privee.txt` exporte la clé privée). Sans clés Sparkle, l'app n'a pas de mises à jour ; sans Developer ID, elle est signée ad hoc (avertissement au premier lancement, sauf avec Homebrew).
+The Sparkle keys are created once with Sparkle's `generate_keys` tool (`generate_keys -x private-key.txt` exports the private key). Without Sparkle keys, the app gets no updates; without a Developer ID, it is signed ad hoc (warning on first launch, except with Homebrew).
 
-## Compiler
+## Building
 
-Il faut macOS 26 ou plus récent, Xcode et [XcodeGen](https://github.com/yonaskolb/XcodeGen) :
+Requires macOS 26 or later, Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen):
 
 ```bash
 brew install xcodegen
@@ -68,10 +70,10 @@ xcodegen generate
 open Triamail.xcodeproj
 ```
 
-Le moteur sans interface se teste seul : `swift test --package-path Packages/TriamailKit`.
+The UI-free engine can be tested on its own: `swift test --package-path Packages/TriamailKit`.
 
-- `App/` : l'app SwiftUI.
-- `Packages/TriamailKit/` : la logique sans interface (règles d'archivage…), testée à part.
-- `project.yml` : la description du projet Xcode, que XcodeGen transforme en `Triamail.xcodeproj` (non versionné).
-- `modeles/` : modèles de réponse IA livrés avec l'app.
-- `AGENTS.md` : consignes pour les agents qui travaillent sur le dépôt.
+- `App/`: the SwiftUI app.
+- `Packages/TriamailKit/`: the UI-free logic (archiving rules…), tested separately.
+- `project.yml`: the Xcode project description, which XcodeGen turns into `Triamail.xcodeproj` (not versioned).
+- `modeles/`: AI reply templates shipped with the app.
+- `AGENTS.md`: instructions for agents working on the repository.

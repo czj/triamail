@@ -1,6 +1,6 @@
 name: Claude
 
-# Mentionner @claude dans une issue ou une PR pour lui confier une tâche.
+# Mention @claude in an issue or a PR to hand it a task.
 on:
   issue_comment:
     types: [created]
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   claude:
-    # Dépôt public : seul le propriétaire du dépôt peut solliciter Claude (et donc consommer son forfait).
+    # Public repository: only the repository owner can call Claude (and so use up their plan).
     if: |
       (contains(github.event.comment.body, '@claude') && github.event.comment.author_association == 'OWNER') ||
       (contains(github.event.issue.body, '@claude') && github.event.issue.author_association == 'OWNER')
