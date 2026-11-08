@@ -71,8 +71,7 @@ final class ReplyModel {
     /// The reviewed text goes to Gmail's drafts, in the thread; sending stays a deliberate act.
     func saveDraft(_ message: MailMessage, text: String) async {
         do {
-            let token = try await GmailAuthenticator().accessToken(for: GmailAccount(email: message.account))
-            _ = try await GmailAPI(accessToken: token).createDraft(ReplyDraft(original: message, body: text))
+            _ = try await GmailAuthenticator().api(for: message.gmailAccount).createDraft(ReplyDraft(original: message, body: text))
             states[message.id] = .saved
         } catch {
             states[message.id] = .failed("Brouillon non créé : \(error.localizedDescription)")
@@ -97,8 +96,7 @@ final class SummaryModel {
         states[message.id] = .working
         Task {
             do {
-                let token = try await GmailAuthenticator().accessToken(for: GmailAccount(email: message.account))
-                let thread = try await GmailAPI(accessToken: token).thread(id: message.threadID, account: message.account)
+                let thread = try await GmailAuthenticator().api(for: message.gmailAccount).thread(id: message.threadID, account: message.account)
                 let prompt = SummaryPrompt.make(thread: thread.isEmpty ? [message] : thread, account: message.account)
                 states[message.id] = .done(try await AIService.complete(prompt, settings: settings))
             } catch {

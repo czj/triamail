@@ -81,3 +81,35 @@ import Testing
         }
     }
 }
+
+@Suite struct AccessTokenCacheTests {
+    actor Counter { var value = 0; func increment() -> Int { value += 1; return value } }
+
+    @Test func refreshesOncePerAccountWhileValid() async throws {
+        let cache = AccessTokenCache()
+        let counter = Counter()
+        let refresh: @Sendable () async throws -> TokenResponse = {
+            let n = await counter.increment()
+            return TokenResponse(accessToken: "jeton-\(n)", expiresIn: 3600, refreshToken: nil, scope: nil)
+        }
+        async let first = cache.token(for: "jeanne@exemple.com", refresh: refresh)
+        async let second = cache.token(for: "jeanne@exemple.com", refresh: refresh)
+        let tokens = try await [first, second, cache.token(for: "jeanne@exemple.com", refresh: refresh)]
+        #expect(Set(tokens) == ["jeton-1"])
+        #expect(await counter.value == 1)
+
+        await cache.forget("jeanne@exemple.com")
+        #expect(try await cache.token(for: "jeanne@exemple.com", refresh: refresh) == "jeton-2")
+    }
+
+    @Test func expiredTokenIsRefreshed() async throws {
+        let cache = AccessTokenCache()
+        let counter = Counter()
+        let refresh: @Sendable () async throws -> TokenResponse = {
+            let n = await counter.increment()
+            return TokenResponse(accessToken: "jeton-\(n)", expiresIn: 30, refreshToken: nil, scope: nil)
+        }
+        _ = try await cache.token(for: "a", refresh: refresh)
+        #expect(try await cache.token(for: "a", refresh: refresh) == "jeton-2")
+    }
+}

@@ -19,8 +19,7 @@ final class InboxModel {
         var failures: [String] = []
         for account in accounts {
             do {
-                let token = try await authenticator.accessToken(for: account)
-                all += try await GmailAPI(accessToken: token).inbox(account: account.email)
+                all += try await authenticator.api(for: account).inbox(account: account.email)
             } catch {
                 failures.append("\(account.email) : \(error.localizedDescription)")
             }
@@ -35,10 +34,8 @@ final class InboxModel {
 
     /// The mail leaves the list (archived in Gmail, never deleted).
     func markDone(_ message: MailMessage) async {
-        let account = GmailAccount(email: message.account)
         do {
-            let token = try await authenticator.accessToken(for: account)
-            try await GmailAPI(accessToken: token).archive(messageID: message.id)
+            try await authenticator.api(for: message.gmailAccount).archive(messageID: message.id)
             messages.removeAll { $0.id == message.id }
         } catch {
             self.error = "Impossible d'archiver : \(error.localizedDescription)"
