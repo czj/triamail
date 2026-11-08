@@ -17,9 +17,13 @@ jobs:
         with:
           fetch-depth: 0
       - name: Secrets (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          curl -sSfL --retry 4 -o gitleaks.tgz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tgz gitleaks && rm gitleaks.tgz
+          ./gitleaks git --redact --verbose .
       - name: Téléphones et adresses mail
         run: |
           # Numéros français et adresses mail, hors domaines d'exemple et adresses techniques.
