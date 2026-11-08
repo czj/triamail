@@ -22,10 +22,6 @@ struct SettingsView: View {
         }
         .frame(width: 640, height: 520)
     }
-
-    private func placeholder(_ title: LocalizedStringKey, _ message: LocalizedStringKey) -> some View {
-        ContentUnavailableView(title, systemImage: "hammer", description: Text(message))
-    }
 }
 
 struct GeneralSettingsView: View {
@@ -35,6 +31,7 @@ struct GeneralSettingsView: View {
     @State private var choosingCodeRoot = false
 
     var body: some View {
+        @Bindable var model = model
         Form {
             Section {
                 LabeledContent("Dossier") {
@@ -58,7 +55,6 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                @Bindable var model = model
                 LabeledContent("Dossier des dépôts") {
                     HStack {
                         Text(model.settings.codeRoot ?? "Aucun").foregroundStyle(.secondary)
@@ -66,7 +62,6 @@ struct GeneralSettingsView: View {
                             .fileImporter(isPresented: $choosingCodeRoot, allowedContentTypes: [.folder]) { result in
                                 if case let .success(url) = result {
                                     model.settings.codeRoot = url.path.abbreviatingHomeDirectory
-                                    model.save()
                                 }
                             }
                     }
@@ -74,7 +69,6 @@ struct GeneralSettingsView: View {
                 Picker("Terminal", selection: $model.settings.terminalBundleID) {
                     ForEach(ClaudeCodeLauncher.terminals, id: \.bundleID) { Text($0.name).tag($0.bundleID) }
                 }
-                .onChange(of: model.settings.terminalBundleID) { model.save() }
             } header: {
                 Text("Claude Code")
             } footer: {
@@ -83,12 +77,10 @@ struct GeneralSettingsView: View {
             }
 
             Section("Rappels") {
-                @Bindable var model = model
                 Picker("Liste", selection: $model.settings.remindersListName) {
                     Text("Liste par défaut").tag(String?.none)
                     ForEach(reminderLists, id: \.self) { Text($0).tag(Optional($0)) }
                 }
-                .onChange(of: model.settings.remindersListName) { model.save() }
             }
 
             if let error = model.lastError {
