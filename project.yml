@@ -21,6 +21,10 @@ targets:
     sources:
       - App/Sources
       - App/Resources
+      # Modèles de réponse livrés avec l'app, copiés dans le dossier de réglages au premier lancement.
+      - path: modeles
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: TriamailKit
     settings:
