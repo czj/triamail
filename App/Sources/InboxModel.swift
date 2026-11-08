@@ -13,27 +13,23 @@ final class InboxModel {
     private(set) var loading = false
     var error: String?
 
-    private let authenticator = GmailAuthenticator()
-    /// `-demo` launch argument: fake mails, the Gmail inbox is never read nor changed (screenshots, UI work).
-    /// Actions that need the account (invoice PDF, summary, reply) fail on the fake one.
-    static let demo = ProcessInfo.processInfo.arguments.contains("-demo")
+    private let source: any MailSource
+
+    init(source: any MailSource) {
+        self.source = source
+    }
 
     func refresh(accounts: [GmailAccount]) async {
-        if Self.demo {
-            // Once only: a refresh does not bring back the mails archived during the demo.
-            if messages.isEmpty { messages = MailMessage.samples }
-            return
-        }
         guard !loading else { return }
         loading = true
         defer { loading = false }
-        let authenticator = authenticator
+        let source = source
         // Every account at once: the refresh lasts as long as the slowest one, not their sum.
         let results = await withTaskGroup(of: Result<[MailMessage], AccountError>.self) { group in
             for account in accounts {
                 group.addTask {
                     do {
-                        return .success(try await authenticator.api(for: account).inbox(account: account.email))
+                        return .success(try await source.inbox(account: account))
                     } catch {
                         return .failure(AccountError(message: "\(account.email) : \(error.localizedDescription)"))
                     }
@@ -59,12 +55,10 @@ final class InboxModel {
         messages.filter(mailbox.contains)
     }
 
-    /// The mail leaves the list (archived in Gmail, never deleted). False when Gmail refused.
+    /// The mail leaves the list (archived, never deleted). False when the mailbox refused.
     func markDone(_ message: MailMessage) async -> Bool {
         do {
-            if !Self.demo {
-                try await authenticator.api(for: message.gmailAccount).archive(messageID: message.id)
-            }
+            try await source.archive(message)
             messages.removeAll { $0.id == message.id }
             return true
         } catch {

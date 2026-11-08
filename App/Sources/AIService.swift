@@ -45,6 +45,11 @@ final class ReplyModel {
     }
 
     private(set) var states: [MailMessage.ID: State] = [:]
+    private let source: any MailSource
+
+    init(source: any MailSource) {
+        self.source = source
+    }
 
     func state(of message: MailMessage) -> State? { states[message.id] }
 
@@ -72,7 +77,7 @@ final class ReplyModel {
     func saveDraft(_ message: MailMessage) async {
         guard case let .ready(text) = states[message.id] else { return }
         do {
-            _ = try await GmailAuthenticator().api(for: message.gmailAccount).createDraft(ReplyDraft(original: message, body: text))
+            _ = try await source.createDraft(ReplyDraft(original: message, body: text))
             states[message.id] = .saved
         } catch {
             states[message.id] = .failed("Brouillon non créé : \(error.localizedDescription)")
@@ -90,6 +95,11 @@ final class SummaryModel {
     }
 
     private(set) var states: [MailMessage.ID: State] = [:]
+    private let source: any MailSource
+
+    init(source: any MailSource) {
+        self.source = source
+    }
 
     func state(of message: MailMessage) -> State? { states[message.id] }
 
@@ -97,7 +107,7 @@ final class SummaryModel {
         states[message.id] = .working
         Task {
             do {
-                let thread = try await GmailAuthenticator().api(for: message.gmailAccount).thread(id: message.threadID, account: message.account)
+                let thread = try await source.thread(of: message)
                 let prompt = SummaryPrompt.make(thread: thread.isEmpty ? [message] : thread, account: message.account)
                 states[message.id] = .done(try await AIService.complete(prompt, settings: settings))
             } catch {

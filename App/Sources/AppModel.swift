@@ -24,14 +24,31 @@ final class AppModel {
     /// Connected Gmail accounts on this Mac (their tokens are in this Mac's keychain).
     private(set) var accounts: [GmailAccount] = []
 
+    /// `-demo` launch argument: a fake `exemple.com` account whose mails live in memory. Every action works
+    /// (archive, invoice, summary, reply) and the real Gmail accounts are neither read nor changed.
+    static let isDemo = ProcessInfo.processInfo.arguments.contains("-demo")
+    /// Gmail, or the in-memory sample in demo mode: the only place that knows which.
+    let mailSource: any MailSource
+    /// Shared by every window: the inbox, and replies and summaries in progress per mail.
+    let inbox: InboxModel
+    let replies: ReplyModel
+    let summaries: SummaryModel
+
     init() {
+        let source: any MailSource = Self.isDemo ? SampleMailSource() : GmailSource()
+        mailSource = source
+        inbox = InboxModel(source: source)
+        replies = ReplyModel(source: source)
+        summaries = SummaryModel(source: source)
         let path = UserDefaults.standard.string(forKey: Self.settingsFolderKey)
         store = SettingsStore(folder: path.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? SettingsStore.defaultFolder)
         reload()
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.flush() }
         }
-        if let data = UserDefaults.standard.data(forKey: Self.accountsKey) {
+        if Self.isDemo {
+            accounts = [SampleMailSource.account]
+        } else if let data = UserDefaults.standard.data(forKey: Self.accountsKey) {
             accounts = (try? JSONDecoder().decode([GmailAccount].self, from: data)) ?? []
         }
     }
@@ -72,6 +89,8 @@ final class AppModel {
     }
 
     private func saveAccounts() {
+        // The demo's fake account never replaces the real list.
+        guard !Self.isDemo else { return }
         UserDefaults.standard.set(try? JSONEncoder().encode(accounts), forKey: Self.accountsKey)
     }
 

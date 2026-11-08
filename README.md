@@ -72,6 +72,8 @@ open Triamail.xcodeproj
 
 The UI-free engine can be tested on its own: `swift test --package-path Packages/TriamailKit`.
 
+Demo mode: launch with `-demo` (Xcode scheme > Arguments) to get a fake `exemple.com` account with sample mails kept in memory. Every action works (archive, invoice PDF, summary, reply draft) without a Google account, and the real accounts are not touched. Add `-demoSelection demo-2` to open on a given mail, for screenshots.
+
 - `App/`: the SwiftUI app.
 - `Packages/TriamailKit/`: the UI-free logic (archiving rules…), tested separately.
 - `project.yml`: the Xcode project description, which XcodeGen turns into `Triamail.xcodeproj` (not versioned).

@@ -6,10 +6,7 @@ import TriamailKit
 /// and on the right what the mail points to (the GitHub page, the invoice PDF).
 struct MainView: View {
     @Environment(AppModel.self) private var model
-    @State private var inbox = InboxModel()
     @State private var translations = TranslationModel()
-    @State private var replies = ReplyModel()
-    @State private var summaries = SummaryModel()
     @State private var mailbox: Mailbox = .toTriage
     @State private var selection: MailMessage.ID?
     @State private var search = ""
@@ -71,7 +68,7 @@ struct MainView: View {
         .task(id: model.accounts) {
             await inbox.refresh(accounts: model.accounts)
             // `-demo -demoSelection demo-2`: open on a given mail, for screenshots.
-            if InboxModel.demo, selection == nil { selection = UserDefaults.standard.string(forKey: "demoSelection") }
+            if selection == nil { selection = UserDefaults.standard.string(forKey: "demoSelection") }
         }
         .task(id: inbox.messages.map(\.id)) { await translations.process(inbox.messages) }
     }
@@ -115,7 +112,10 @@ struct MainView: View {
         }
     }
 
-    private var hasInbox: Bool { InboxModel.demo || !model.accounts.isEmpty }
+    private var hasInbox: Bool { !model.accounts.isEmpty }
+    private var inbox: InboxModel { model.inbox }
+    private var replies: ReplyModel { model.replies }
+    private var summaries: SummaryModel { model.summaries }
 
     private var visibleMessages: [MailMessage] {
         inbox.messages(in: mailbox).filter { $0.matches(search) }
@@ -409,6 +409,7 @@ struct MessageDetailView: View {
 
 /// The right-hand pane: the page a notification points to, or the invoice to archive.
 struct SidePane: View {
+    @Environment(AppModel.self) private var model
     let message: MailMessage
     /// `message.sideContents`, already computed by the caller: never empty when the pane shows.
     let contents: [SideContent]
@@ -430,7 +431,7 @@ struct SidePane: View {
             }
             switch current {
             case .invoice:
-                InvoicePane(message: message, settings: settings, markDone: markDone)
+                InvoicePane(message: message, settings: settings, source: model.mailSource, markDone: markDone)
             case let .page(link):
                 HStack {
                     Image(systemName: "globe").foregroundStyle(.secondary)

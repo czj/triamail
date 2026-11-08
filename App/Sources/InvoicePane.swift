@@ -7,6 +7,7 @@ import WebKit
 struct InvoicePane: View {
     let message: MailMessage
     let settings: SharedSettings
+    let source: any MailSource
     let markDone: () -> Void
 
     @State private var pdf: Data?
@@ -15,8 +16,6 @@ struct InvoicePane: View {
     @State private var working = false
     /// Set once the PDF is in its folder: a retry after a failed send only retries the send.
     @State private var saved: URL?
-
-    private let authenticator = GmailAuthenticator()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,11 +70,10 @@ struct InvoicePane: View {
         saved = nil
         status = nil
         do {
-            let api = try await authenticator.api(for: message.gmailAccount)
             let data: Data
             let fileName: String
             if let attachment = message.attachments.first(where: { $0.mimeType == "application/pdf" || $0.fileName.lowercased().hasSuffix(".pdf") }) {
-                data = try await api.attachment(messageID: message.id, attachmentID: attachment.attachmentID)
+                data = try await source.attachment(attachment, of: message)
                 fileName = attachment.fileName
             } else {
                 // The invoice is the mail itself: print it to PDF.
@@ -100,12 +98,11 @@ struct InvoicePane: View {
             self.saved = saved
             status = "Enregistrée : \(saved.lastPathComponent)"
             if plan.rule.sendToAccounting, let address = plan.folder.accountingEmail, !address.isEmpty {
-                let api = try await authenticator.api(for: message.gmailAccount)
                 let mail = OutgoingMail(to: address, subject: saved.deletingPathExtension().lastPathComponent,
                                         body: "Facture jointe.", attachmentName: saved.lastPathComponent, attachment: pdf)
-                let sentID = try await api.send(raw: mail.rfc2822())
+                let sentID = try await source.send(raw: mail.rfc2822(), from: message.gmailAccount)
                 // Sent and confirmed: the copy has nothing to do in Sent mail.
-                try await api.trash(messageID: sentID)
+                try await source.trash(messageID: sentID, account: message.gmailAccount)
                 status = "Enregistrée et envoyée à \(address)"
             }
             markDone()
