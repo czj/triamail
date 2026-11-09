@@ -3,7 +3,6 @@ import SwiftUI
 
 /// Sparkle 2: checks the appcast published with each GitHub release, signed with EdDSA.
 /// Off when the build has no public key (local builds), so nothing unsigned is ever installed.
-@MainActor
 final class Updater {
     static let shared = Updater()
 

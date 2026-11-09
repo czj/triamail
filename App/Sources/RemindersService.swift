@@ -3,7 +3,6 @@ import Foundation
 import TriamailKit
 
 /// Creates reminders in the Reminders app (synced to the iPhone by iCloud).
-@MainActor
 final class RemindersService {
     static let shared = RemindersService()
     private let store = EKEventStore()

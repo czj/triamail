@@ -29,7 +29,7 @@ struct HTMLMailBody: NSViewRepresentable {
         view.loadHTMLString(MailHTML.document(for: html, allowingRemoteContent: allowsRemoteContent), baseURL: nil)
     }
 
-    @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate {
         var loaded: Bool?
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {

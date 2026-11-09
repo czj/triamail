@@ -5,7 +5,7 @@ import TriamailKit
 
 /// Automatic translation of foreign mails into French, on the Mac (Translation framework).
 /// The only background work in the app: it changes nothing and nothing leaves the Mac.
-@MainActor @Observable
+@Observable
 final class TranslationModel {
     enum State: Equatable {
         case translating
@@ -59,6 +59,7 @@ final class TranslationModel {
     }
 
     /// Paragraph by paragraph, so the layout survives; blank lines stay blank.
+    /// `nonisolated` lets the requests go to the non-`Sendable` session; it still runs on the caller's actor.
     nonisolated private static func translate(_ paragraphs: [String], with session: TranslationSession) async throws -> String {
         let requests = paragraphs.enumerated()
             .filter { !$0.element.trimmingCharacters(in: .whitespaces).isEmpty }

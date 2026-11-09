@@ -35,7 +35,7 @@ enum AIService {
 }
 
 /// Replies being written in the background, one per mail: you keep triaging meanwhile.
-@MainActor @Observable
+@Observable
 final class ReplyModel {
     enum State: Equatable {
         case writing(String)
@@ -96,7 +96,7 @@ final class ReplyModel {
 }
 
 /// Summaries of a mail or its whole thread, on click (C7).
-@MainActor @Observable
+@Observable
 final class SummaryModel {
     enum State: Equatable {
         case working

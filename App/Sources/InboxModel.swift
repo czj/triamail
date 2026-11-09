@@ -3,7 +3,7 @@ import Observation
 import TriamailKit
 
 /// Mails of every connected account, merged and sorted.
-@MainActor @Observable
+@Observable
 final class InboxModel {
     private(set) var messages: [MailMessage] = [] {
         didSet { counts = Dictionary(uniqueKeysWithValues: Mailbox.allCases.map { mailbox in (mailbox, messages.count(where: mailbox.contains)) }) }

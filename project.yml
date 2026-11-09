@@ -52,6 +52,11 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Swift 6.2 concurrency: everything on the main actor unless stated otherwise,
+        # and an `async` function stays on its caller's actor unless marked `@concurrent`.
+        # TriamailKit keeps the Swift 6.0 rule on purpose (see its Package.swift).
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
 schemes:
   Triamail:
     build:

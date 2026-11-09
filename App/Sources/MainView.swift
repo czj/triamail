@@ -189,7 +189,8 @@ struct MainView: View {
 }
 
 /// Column widths of the main window.
-enum MainWindowLayout {
+/// `nonisolated`: read from the `Sendable` `onGeometryChange` closure.
+nonisolated enum MainWindowLayout {
     static let sidebarMin: CGFloat = 170
     static let sidebarIdeal: CGFloat = 190
     static let sidebarMax: CGFloat = 280

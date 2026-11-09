@@ -4,7 +4,7 @@ import Observation
 import TriamailKit
 
 /// App-wide state: where the settings live and what they say.
-@MainActor @Observable
+@Observable
 final class AppModel {
     private static let settingsFolderKey = "settingsFolderPath"
     private static let accountsKey = "gmailAccounts"

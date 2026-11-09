@@ -129,7 +129,6 @@ struct PDFPreview: NSViewRepresentable {
 }
 
 /// Prints an HTML mail to PDF with an offscreen web view.
-@MainActor
 enum HTMLToPDF {
     static func render(_ html: String) async throws -> Data {
         // As on screen, without JavaScript; remote content allowed (invoices load their logo from the web).
