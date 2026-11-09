@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0](https://github.com/czj/triamail/compare/v0.2.1...v0.3.0) (2026-11-09)
+
+
+### Features
+
+* demo mode that covers every action (MailSource) ([#68](https://github.com/czj/triamail/issues/68)) ([eff137e](https://github.com/czj/triamail/commit/eff137edfa12c8aaa9a6d1091ea53055b1ad184c))
+* icône de l'app ([#58](https://github.com/czj/triamail/issues/58)) ([b00c98d](https://github.com/czj/triamail/commit/b00c98d996b7705f2c9036ad281367db5e5a33c5))
+* lean toolbar and a Mail menu ([#82](https://github.com/czj/triamail/issues/82)) ([3f40104](https://github.com/czj/triamail/commit/3f4010416f3f3c367da9b29e8a252d820182add0))
+* mail list rows with avatars, compact dates and hover actions ([#77](https://github.com/czj/triamail/issues/77)) ([ece9f74](https://github.com/czj/triamail/commit/ece9f74807e509d2c62391de3a34a88e2451d681))
+* one-click "Add a Google account" button ([#67](https://github.com/czj/triamail/issues/67)) ([5582c26](https://github.com/czj/triamail/commit/5582c26945e03a96731373696848b17aa9796a44))
+* readable mail with HTML body and header ([#78](https://github.com/czj/triamail/issues/78)) ([652531d](https://github.com/czj/triamail/commit/652531df4f6c420a41ad76ece211ad69080fddfd))
+* reply template editor and one button per template ([#69](https://github.com/czj/triamail/issues/69)) ([fde7c74](https://github.com/czj/triamail/commit/fde7c74e3079c4eeba6ff3404ac2d5bff938797f))
+* sidebar with mailboxes and accounts ([#76](https://github.com/czj/triamail/issues/76)) ([75a7157](https://github.com/czj/triamail/commit/75a7157687e04f0cf5edf38e597d5f60c1e9d8f6))
+* three-pane layout with the mail list on the left ([#61](https://github.com/czj/triamail/issues/61)) ([35f5eda](https://github.com/czj/triamail/commit/35f5eda9275d5a78d025c55524bb1096a01809c7))
+
+
+### Bug Fixes
+
+* keep the mail readable next to the side pane ([#70](https://github.com/czj/triamail/issues/70)) ([7e0f317](https://github.com/czj/triamail/commit/7e0f31746ca5e140a1472a495b20a35b0a9e3088))
+
 ## [0.2.1](https://github.com/czj/triamail/compare/v0.2.0...v0.2.1) (2026-11-08)
 
 
