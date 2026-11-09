@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 @preconcurrency import Translation
 import TriamailKit
@@ -70,6 +71,10 @@ struct MainView: View {
             if selection == nil { selection = model.initialSelection }
         }
         .task(id: inbox.messages.map(\.id)) { await translations.process(inbox.messages) }
+        // Templates edited by hand or synced from another Mac: their buttons follow when you come back.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.reloadTemplates()
+        }
     }
 
     @ViewBuilder private var messageList: some View {
@@ -229,7 +234,6 @@ struct MessageDetailView: View {
     let replies: ReplyModel
     let summaries: SummaryModel
     let settings: SharedSettings
-    @State private var replying = false
     let markDone: () -> Void
     @State private var status: String?
     @State private var choosingReminderDate = false
@@ -245,7 +249,7 @@ struct MessageDetailView: View {
         .id(message.id)
         .safeAreaInset(edge: .top) { SummaryBanner(message: message, summaries: summaries) }
         .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies) }
-        .sheet(isPresented: $replying) { ReplySheet(message: message, replies: replies) }
+        .safeAreaInset(edge: .bottom, spacing: 0) { TemplateBar(message: message, replies: replies) }
         .safeAreaInset(edge: .bottom) {
             if let status {
                 Label(status, systemImage: "info.circle")
@@ -300,10 +304,6 @@ struct MessageDetailView: View {
                 }
                 .keyboardShortcut("y", modifiers: [.command, .shift])
                 .help("Résumer le mail ou tout le fil")
-            }
-            ToolbarItem {
-                Button("Répondre avec l'IA", systemImage: "sparkles") { replying = true }
-                    .keyboardShortcut("r", modifiers: [.command, .shift])
             }
             ToolbarItem {
                 Menu("Rappel", systemImage: "bell") {

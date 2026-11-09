@@ -122,14 +122,58 @@ final class AppModel {
         do {
             settings = try store.load()
             loadFailed = false
-            if let bundled = Bundle.main.url(forResource: "modeles", withExtension: nil) {
-                try store.installTemplates(from: bundled)
-            }
             lastError = nil
         } catch {
             loadFailed = true
             lastError = "Impossible de lire les réglages : \(error.localizedDescription). Rien ne sera enregistré tant que le fichier n'est pas corrigé."
         }
+        // Apart from the settings: a template that cannot be installed never blocks saving them.
+        if let bundled = Bundle.main.url(forResource: "modeles", withExtension: nil) {
+            do {
+                try store.installTemplates(from: bundled)
+            } catch {
+                lastError = "Impossible d'installer les modèles fournis : \(error.localizedDescription)"
+            }
+        }
+        reloadTemplates()
+    }
+
+    /// The reply templates of the settings folder: read on load and after each edit in Settings > Modèles.
+    private(set) var templates: [ReplyTemplate] = []
+    /// Templates whose shortcut clashes: the mail window does not bind it.
+    var shortcutProblems: [ReplyTemplate.ID: String] { ReplyTemplate.shortcutProblems(in: templates) }
+
+    /// Again from disk: also picks up files edited by hand or synced from another Mac.
+    func reloadTemplates() {
+        do {
+            let fresh = try store.templates()
+            // Unchanged (the usual case on activation): no redraw of the buttons.
+            if fresh != templates { templates = fresh }
+        } catch {
+            lastError = "Impossible de lire les modèles : \(error.localizedDescription)"
+        }
+    }
+
+    /// Writes the template (its file follows its title); nil when it could not be saved.
+    @discardableResult
+    func saveTemplate(_ template: ReplyTemplate) -> ReplyTemplate? {
+        do {
+            let saved = try store.save(template)
+            reloadTemplates()
+            return saved
+        } catch {
+            lastError = "Impossible d'enregistrer le modèle : \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    func deleteTemplate(_ template: ReplyTemplate) {
+        do {
+            try store.deleteTemplate(id: template.id)
+        } catch {
+            lastError = "Impossible de supprimer le modèle : \(error.localizedDescription)"
+        }
+        reloadTemplates()
     }
 
     private func scheduleSave() {

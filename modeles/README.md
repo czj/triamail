@@ -2,13 +2,34 @@
 
 Templates shipped with Triamail. They contain no personal information: the app replaces the `{profil.…}` variables with what the user enters in their preferences. The templates themselves are user-facing content and stay in French.
 
-| File | Template | Field asked before drafting |
-|---|---|---|
-| `repondre.md` | Répondre (Reply) | « Intention et ton » (intent and tone) |
-| `renvoyer-vers-support.md` | Renvoyer vers le support (Redirect to support) | none |
-| `dites-m-en-plus.md` | Dites-m'en plus (Tell me more) | none |
-| `loufoque.md` | Loufoque (Zany: reply to spam) | « Guidance » |
-| `oubliez-moi.md` | Oubliez-moi (Forget me) | none |
+| File | Template | Shortcut | Field asked before drafting |
+|---|---|---|---|
+| `repondre.md` | Répondre (Reply) | ⇧⌘1 | « Intention et ton » (intent and tone) |
+| `renvoyer-vers-support.md` | Renvoyer vers le support (Redirect to support) | ⇧⌘2 | none |
+| `dites-m-en-plus.md` | Dites-m'en plus (Tell me more) | ⇧⌘3 | none |
+| `loufoque.md` | Loufoque (Zany: reply to spam) | none | « Guidance » |
+| `oubliez-moi.md` | Oubliez-moi (Forget me) | ⇧⌘4 | none |
+
+Each template is a button under the mail. They are edited in Réglages > Modèles (Settings > Templates), or by hand: the files live in the `modeles/` folder of the settings folder. The bundled files are copied there on first launch and never overwritten afterwards.
+
+## Front matter
+
+Optional, at the top of the file:
+
+```
+---
+titre: Répondre
+bouton: Répondre
+raccourci: cmd+shift+1
+icone: arrowshape.turn.up.left
+---
+prompt…
+```
+
+- `titre`: the name in Settings; the file name follows it. Without front matter, the title comes from the file name (`dites-m-en-plus` → "Dites m en plus").
+- `bouton`: the button's label under the mail (the title when missing).
+- `raccourci`: modifiers among `cmd`, `shift`, `option`, `control`, then one key. The app's own shortcuts (⌘E, ⌘S, ⌘R, ⇧⌘Y, ⇧⌘K, ⌥⌘0, ⌘1…⌘4…) and duplicates are refused.
+- `icone`: an SF Symbol name.
 
 ## Variables
 

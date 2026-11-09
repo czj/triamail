@@ -53,15 +53,23 @@ final class ReplyModel {
 
     func state(of message: MailMessage) -> State? { states[message.id] }
 
+    /// The drafting in progress per mail: a new one (another template) replaces it, the old answer is dropped.
+    private var tasks: [MailMessage.ID: Task<Void, Never>] = [:]
+
     func write(_ message: MailMessage, template: ReplyTemplate, arguments: [String: String], settings: SharedSettings) {
+        tasks[message.id]?.cancel()
         states[message.id] = .writing(template.title)
         let prompt = template.render(profile: settings.profile, selection: message.quotedForPrompt, arguments: arguments)
-        Task {
+        tasks[message.id] = Task {
+            let state: State
             do {
-                states[message.id] = .ready(try await AIService.complete(prompt, settings: settings))
+                state = .ready(try await AIService.complete(prompt, settings: settings))
             } catch {
-                states[message.id] = .failed(error.localizedDescription)
+                state = .failed(error.localizedDescription)
             }
+            guard !Task.isCancelled else { return }
+            states[message.id] = state
+            tasks[message.id] = nil
         }
     }
 
@@ -70,6 +78,8 @@ final class ReplyModel {
     }
 
     func discard(_ message: MailMessage) {
+        tasks[message.id]?.cancel()
+        tasks[message.id] = nil
         states[message.id] = nil
     }
 

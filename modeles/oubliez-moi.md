@@ -1,3 +1,8 @@
+---
+titre: Oubliez-moi
+raccourci: cmd+shift+4
+icone: hand.raised
+---
 En tant que {profil.nom_complet}, {profil.fonction} de {profil.entreprise}, j'ai reçu le courriel professionnel suivant dans ma boîte de réception :
 
 {selection}
