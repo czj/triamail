@@ -13,7 +13,13 @@ struct MainView: View {
     @State private var search = ""
     @State private var tidying = false
     /// Feedback of the list's own actions (a reminder created from a row).
-    @State private var listStatus: String?
+    @State private var listStatus: ListStatus?
+
+    struct ListStatus: Equatable {
+        let id = UUID()
+        var text: String
+        var failed = false
+    }
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
     /// Whether the mail column can hold the mail and the side pane: a narrow one hides the pane rather than squeezing the mail.
@@ -113,24 +119,24 @@ struct MainView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if let error = inbox.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.bar)
-                } else if let listStatus {
-                    Label(listStatus, systemImage: "bell")
-                        .font(.caption)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.bar)
-                        .task(id: listStatus) {
-                            try? await Task.sleep(for: .seconds(4))
-                            self.listStatus = nil
-                        }
+                VStack(alignment: .leading, spacing: 4) {
+                    if let error = inbox.error {
+                        Text(error).foregroundStyle(.red)
+                    }
+                    if let listStatus {
+                        Label(listStatus.text, systemImage: listStatus.failed ? "exclamationmark.triangle" : "bell")
+                            .foregroundStyle(listStatus.failed ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                            // Keyed on the status itself: a second identical message restarts the timer.
+                            .task(id: listStatus.id) {
+                                try? await Task.sleep(for: .seconds(listStatus.failed ? 8 : 4))
+                                if self.listStatus?.id == listStatus.id { self.listStatus = nil }
+                            }
+                    }
                 }
+                .font(.caption)
+                .padding(inbox.error == nil && listStatus == nil ? 0 : 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(inbox.error == nil && listStatus == nil ? AnyShapeStyle(.clear) : AnyShapeStyle(.bar))
             }
         }
     }
@@ -141,9 +147,9 @@ struct MainView: View {
             do {
                 let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now),
                                                                  listName: model.settings.remindersListName)
-                listStatus = "Rappel \(delay.title) créé dans « \(list) »"
+                listStatus = ListStatus(text: "Rappel \(delay.title) créé dans « \(list) »")
             } catch {
-                listStatus = error.localizedDescription
+                listStatus = ListStatus(text: error.localizedDescription, failed: true)
             }
         }
     }
@@ -297,6 +303,8 @@ private struct MessageRow: View {
             if hovering { hoverActions }
         }
         .onHover { hovering = $0 }
+        // A row archived or scrolled away under the pointer gets no hover-exit.
+        .onDisappear { hovering = false }
         .contextMenu {
             Button("Traité", systemImage: "checkmark", action: markDone)
             reminderMenu
@@ -317,10 +325,13 @@ private struct MessageRow: View {
                     .fontWeight(message.isUnread ? .semibold : .medium)
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                Text(ListDate.text(for: message.date))
-                    .font(.caption)
-                    .monospacedDigit()
-                    .foregroundStyle(message.isUnread ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                // Follows the clock: "09:05" becomes "lundi" after midnight without a refresh.
+                TimelineView(.everyMinute) { context in
+                    Text(ListDate.text(for: message.date, now: context.date))
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(message.isUnread ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+                }
             }
             Text(message.subject)
                 .font(.callout)

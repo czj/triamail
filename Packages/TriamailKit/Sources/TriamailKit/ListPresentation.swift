@@ -3,27 +3,38 @@ import Foundation
 extension MailMessage {
     /// "Paul Exemple <paul@exemple.com>" → "PE", "GitHub <notifications@github.com>" → "G",
     /// "paul@exemple.com" → "P": the letters of the sender's avatar.
+    /// "Exemple, Jeanne" → "JE"; notes like "(via LinkedIn)" or "- GitHub" after the name are left out.
     public var senderInitials: String {
-        let words = senderName.split { !$0.isLetter && !$0.isNumber }
-        let letters: [Character]
-        if senderName.contains("@") || words.count < 2 {
-            letters = words.first?.first.map { [$0] } ?? []
-        } else {
-            letters = [words[0].first, words[words.count - 1].first].compactMap { $0 }
+        var name = senderName
+            .replacing(/\s*\(.*\)\s*$/, with: "")
+            .replacing(/\s+[-–—|]\s+.*$/, with: "")
+        if !name.contains("@"), let comma = name.firstIndex(of: ",") {
+            name = "\(name[name.index(after: comma)...]) \(name[..<comma])"
         }
-        return String(letters).uppercased()
+        let words = name.split { !$0.isLetter && !$0.isNumber }
+        let firsts: [Character]
+        if name.contains("@") || words.count < 2 {
+            firsts = words.first?.first.map { [$0] } ?? []
+        } else {
+            firsts = [words[0].first, words[words.count - 1].first].compactMap { $0 }
+        }
+        // One letter each, even when uppercasing makes two ("ß" → "SS").
+        return firsts.map { String($0.uppercased().prefix(1)) }.joined()
     }
 
-    /// The avatar's colour among `count` colours: always the same for an address, on every Mac and every launch
-    /// (Swift's `hashValue` changes at each launch).
+    /// The avatar's colour among `count` colours: always the same for a sender, on every Mac and every launch
+    /// (Swift's `hashValue` changes at each launch). Based on the name: GitHub sends every actor from one address.
     public func avatarColorIndex(count: Int) -> Int {
         guard count > 0 else { return 0 }
-        // FNV-1a on the lowercased address.
+        return Int(Self.fnv1a(senderName.lowercased()) % UInt32(count))
+    }
+
+    static func fnv1a(_ text: String) -> UInt32 {
         var hash: UInt32 = 2_166_136_261
-        for byte in senderAddress.lowercased().utf8 {
+        for byte in text.utf8 {
             hash = (hash ^ UInt32(byte)) &* 16_777_619
         }
-        return Int(hash % UInt32(count))
+        return hash
     }
 }
 

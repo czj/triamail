@@ -15,17 +15,22 @@ import Testing
         #expect(mail(from: "paul@exemple.com").senderInitials == "P")
         #expect(mail(from: "élodie exemple <e@exemple.com>").senderInitials == "ÉE")
         #expect(mail(from: "").senderInitials == "")
+        #expect(mail(from: "\"Exemple, Jeanne\" <j@exemple.com>").senderInitials == "JE")
+        #expect(mail(from: "Paul Exemple (via LinkedIn) <p@exemple.com>").senderInitials == "PE")
+        #expect(mail(from: "Jeanne Exemple - GitHub <j@exemple.com>").senderInitials == "JE")
+        #expect(mail(from: "ßara Exemple <s@exemple.com>").senderInitials == "SE")
     }
 
-    @Test func avatarColourIsStablePerAddress() {
-        let paul = mail(from: "Paul <paul@exemple.com>").avatarColorIndex(count: 8)
-        #expect(mail(from: "Paul Exemple <PAUL@exemple.com>").avatarColorIndex(count: 8) == paul)
-        #expect((0..<8).contains(paul))
-        // Known value: FNV-1a must not change between versions, or every avatar changes colour.
-        #expect(paul == mail(from: "paul@exemple.com").avatarColorIndex(count: 8))
+    @Test func avatarColourIsStablePerSender() {
+        // Known FNV-1a values: the hash must not change between versions, or every avatar changes colour.
+        #expect(MailMessage.fnv1a("a") == 0xE40C_292C)
+        #expect(MailMessage.fnv1a("") == 2_166_136_261)
+        let paul = mail(from: "Paul Exemple <paul@exemple.com>").avatarColorIndex(count: 8)
+        #expect(mail(from: "paul exemple <autre@exemple.com>").avatarColorIndex(count: 8) == paul)
         #expect(mail(from: "x@exemple.com").avatarColorIndex(count: 0) == 0)
-        let spread = Set(["a", "b", "c", "d", "e", "f", "g", "h"].map { mail(from: "\($0)@exemple.com").avatarColorIndex(count: 8) })
-        #expect(spread.count > 3)
+        // GitHub actors share one address but get their own colours.
+        let actors = ["Paul", "Jeanne", "Marie", "Anna", "Luc", "Zoé"].map { mail(from: "\($0) Exemple <notifications@github.com>").avatarColorIndex(count: 8) }
+        #expect(Set(actors).count > 2)
     }
 
     @Test func listDates() throws {
