@@ -31,6 +31,16 @@ final class RemindersService {
         return list.title
     }
 
+    /// A reminder for the mail, from the list or the mail itself: the line to show the user, or the error's.
+    func remind(_ message: MailMessage, _ delay: ReminderDelay, listName: String?) async -> (text: String, failed: Bool) {
+        do {
+            let list = try await add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: listName)
+            return ("Rappel \(delay.title) créé dans « \(list) »", false)
+        } catch {
+            return (error.localizedDescription, true)
+        }
+    }
+
     enum RemindersError: LocalizedError {
         case denied, noList
 

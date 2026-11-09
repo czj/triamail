@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 @preconcurrency import Translation
 import TriamailKit
@@ -12,6 +13,16 @@ struct MainView: View {
     @State private var selection: MailMessage.ID?
     @State private var search = ""
     @State private var tidying = false
+    /// Feedback of the list's own actions (a reminder created from a row).
+    @State private var listStatus: ListStatus?
+    /// The day the list's dates are relative to.
+    @State private var today = Date.now
+
+    struct ListStatus: Equatable {
+        let id = UUID()
+        var text: String
+        var failed = false
+    }
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
     /// Whether the mail column can hold the mail and the side pane: a narrow one hides the pane rather than squeezing the mail.
@@ -100,7 +111,12 @@ struct MainView: View {
         } else {
             let messages = visibleMessages
             List(messages, selection: $selection) { message in
-                MessageRow(message: message, language: translations.language(of: message))
+                MessageRow(message: message, language: translations.language(of: message), today: today,
+                           markDone: { markDone(message) }, remind: { remind(message, $0) })
+            }
+            // One event a day for the whole list: "09:05" becomes "lundi" after midnight.
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+                today = .now
             }
             .overlay {
                 if inbox.loading && messages.isEmpty {
@@ -110,15 +126,35 @@ struct MainView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                if let error = inbox.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(.bar)
+                if inbox.error != nil || listStatus != nil {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let error = inbox.error {
+                            Text(error).foregroundStyle(.red)
+                        }
+                        if let listStatus {
+                            Label(listStatus.text, systemImage: listStatus.failed ? "exclamationmark.triangle" : "bell")
+                                .foregroundStyle(listStatus.failed ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                                // Keyed on the status itself: a second identical message restarts the timer.
+                                .task(id: listStatus.id) {
+                                    try? await Task.sleep(for: .seconds(listStatus.failed ? 8 : 4))
+                                    if self.listStatus?.id == listStatus.id { self.listStatus = nil }
+                                }
+                        }
+                    }
+                    .font(.caption)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.bar)
                 }
             }
+        }
+    }
+
+    /// A reminder from the list (hover or right-click), without opening the mail.
+    private func remind(_ message: MailMessage, _ delay: ReminderDelay) {
+        Task {
+            let result = await RemindersService.shared.remind(message, delay, listName: model.settings.remindersListName)
+            listStatus = ListStatus(text: result.text, failed: result.failed)
         }
     }
 
@@ -222,51 +258,109 @@ struct MailboxCommands: Commands {
     }
 }
 
+/// The sender's initials on a colour of their own (the same address always gets the same colour).
+struct SenderAvatar: View {
+    let message: MailMessage
+    var size: CGFloat = 32
+
+    private static let palette: [Color] = [.blue, .purple, .pink, .red, .orange, .green, .teal, .indigo]
+
+    var body: some View {
+        Circle()
+            .fill(Self.palette[message.avatarColorIndex(count: Self.palette.count)].gradient)
+            .frame(width: size, height: size)
+            .overlay {
+                Text(message.senderInitials)
+                    .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// A mail in the list: avatar, sender and date, subject, two lines of preview, discreet badges.
+/// Hovering shows "Traité" and "Rappel"; swiping left archives.
 private struct MessageRow: View {
     let message: MailMessage
     let language: Locale.Language?
+    let today: Date
+    let markDone: () -> Void
+    let remind: (ReminderDelay) -> Void
+    @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Circle()
-                .fill(.tint)
-                .frame(width: 7, height: 7)
-                .opacity(message.isUnread ? 1 : 0)
-                .accessibilityHidden(true)
+        HStack(alignment: .top, spacing: 10) {
+            SenderAvatar(message: message)
+                .overlay(alignment: .topLeading) {
+                    if message.isUnread {
+                        Circle()
+                            .fill(.tint)
+                            .stroke(.background, lineWidth: 2)
+                            .frame(width: 10, height: 10)
+                            .offset(x: -2, y: -2)
+                            .accessibilityHidden(true)
+                    }
+                }
             details
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .overlay(alignment: .bottomTrailing) {
+            if hovering { hoverActions }
+        }
+        .onHover { hovering = $0 }
+        // A row archived or scrolled away under the pointer gets no hover-exit.
+        .onDisappear { hovering = false }
+        .contextMenu {
+            doneButton
+            Menu("Rappel", systemImage: "bell") { ReminderPresetItems(action: remind) }
+        }
+        .swipeActions(edge: .trailing) {
+            doneButton.tint(.green)
+        }
         .accessibilityElement(children: .combine)
         .accessibilityValue(message.isUnread ? Text("Non lu") : Text(""))
+        .accessibilityAction(named: "Traité", markDone)
     }
 
     private var details: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline) {
                 Text(message.senderName)
-                    .fontWeight(message.isUnread ? .semibold : .regular)
+                    .fontWeight(message.isUnread ? .semibold : .medium)
                     .lineLimit(1)
-                Spacer()
-                if let language {
-                    Text("\(language.shortCode) → FR")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 4)
-                        .background(.tint.opacity(0.15), in: .capsule)
-                        .help("Traduit automatiquement sur ce Mac")
-                }
-                Text(message.date, format: .relative(presentation: .named))
+                Spacer(minLength: 6)
+                Text(ListDate.text(for: message.date, now: today))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .foregroundStyle(message.isUnread ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             }
             Text(message.subject)
+                .font(.callout)
+                .fontWeight(message.isUnread ? .medium : .regular)
                 .lineLimit(1)
             Text(message.snippet)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
-            Group {
-                if let repository = message.gitHubRepository {
+            badges
+        }
+    }
+
+    @ViewBuilder private var badges: some View {
+        let repository = message.gitHubRepository
+        if language != nil || repository != nil || !message.attachments.isEmpty {
+            HStack(spacing: 8) {
+                if let language {
+                    Text("\(language.shortCode) → FR")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(.tint.opacity(0.15), in: .capsule)
+                        .help("Traduit automatiquement sur ce Mac")
+                }
+                if let repository {
                     Label(repository, systemImage: "chevron.left.forwardslash.chevron.right")
+                        .lineLimit(1)
                 } else if !message.attachments.isEmpty {
                     Label(message.attachments.map(\.fileName).joined(separator: ", "), systemImage: "paperclip")
                         .lineLimit(1)
@@ -274,6 +368,43 @@ private struct MessageRow: View {
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
+            .padding(.top, 2)
+        }
+    }
+
+    private var hoverActions: some View {
+        HStack(spacing: 2) {
+            doneButton
+                .help("Traité : archive le mail")
+            Menu {
+                ReminderPresetItems(action: remind)
+            } label: {
+                Label("Rappel", systemImage: "bell")
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Créer un rappel")
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.borderless)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(.regularMaterial, in: .capsule)
+        .accessibilityHidden(true)
+    }
+
+    private var doneButton: some View {
+        Button("Traité", systemImage: "checkmark", action: markDone)
+    }
+}
+
+/// "J+1", "J+3", "J+7": the reminder presets, in every reminder menu.
+struct ReminderPresetItems: View {
+    let action: (ReminderDelay) -> Void
+
+    var body: some View {
+        ForEach(ReminderDelay.presets, id: \.self) { delay in
+            Button(delay.title) { action(delay) }
         }
     }
 }
@@ -357,9 +488,7 @@ struct MessageDetailView: View {
             }
             ToolbarItem {
                 Menu("Rappel", systemImage: "bell") {
-                    ForEach(ReminderDelay.presets, id: \.self) { delay in
-                        Button(delay.title) { addReminder(delay) }
-                    }
+                    ReminderPresetItems(action: addReminder)
                     Divider()
                     Button("Choisir une date…") { choosingReminderDate = true }
                 }
@@ -386,14 +515,7 @@ struct MessageDetailView: View {
     }
 
     private func addReminder(_ delay: ReminderDelay) {
-        Task {
-            do {
-                let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: settings.remindersListName)
-                status = "Rappel \(delay.title) créé dans « \(list) »"
-            } catch {
-                status = error.localizedDescription
-            }
-        }
+        Task { status = await RemindersService.shared.remind(message, delay, listName: settings.remindersListName).text }
     }
 
     private var isTranslated: Bool { translations.language(of: message) != nil }
