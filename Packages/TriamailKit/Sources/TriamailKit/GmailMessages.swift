@@ -27,6 +27,29 @@ public struct MailMessage: Identifiable, Hashable, Sendable {
     public var rfcMessageID: String? = nil
     public var references: String? = nil
     public var replyTo: String? = nil
+    /// Images embedded in the mail (multipart/related) that the HTML shows with `cid:`: not attachments.
+    public var inlineParts: [InlinePart] = []
+
+    /// An image of the mail itself, referenced by its Content-ID: in the message (small ones) or to fetch.
+    public struct InlinePart: Hashable, Sendable {
+        /// Without the angle brackets: "logo@exemple".
+        public var contentID: String
+        public var mimeType: String
+        public var attachmentID: String?
+        public var data: Data?
+
+        public init(contentID: String, mimeType: String, attachmentID: String? = nil, data: Data? = nil) {
+            self.contentID = contentID
+            self.mimeType = mimeType
+            self.attachmentID = attachmentID
+            self.data = data
+        }
+
+        /// To fetch it through `MailSource.attachment` like any attachment.
+        public var asAttachment: Attachment? {
+            attachmentID.map { Attachment(fileName: contentID, mimeType: mimeType, attachmentID: $0, size: 0) }
+        }
+    }
 
     /// "Prénom Nom <adresse@exemple.com>" → "Prénom Nom".
     public var senderName: String {
@@ -100,6 +123,10 @@ struct GmailMessageResource: Decodable {
         var headers: [Header]?
         var body: Body?
         var parts: [Part]?
+
+        func header(_ name: String) -> String? {
+            headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
+        }
     }
 
     var id: String
@@ -110,17 +137,16 @@ struct GmailMessageResource: Decodable {
     var payload: Part
 
     func message(account: String) -> MailMessage {
-        func header(_ name: String) -> String? {
-            payload.headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
-        }
-        var plain: [String] = []
-        var html: [String] = []
-        var attachments: [MailMessage.Attachment] = []
-        walk(payload, plain: &plain, html: &html, attachments: &attachments)
+        func header(_ name: String) -> String? { payload.header(name) }
+        var parts = CollectedParts()
+        walk(payload, into: &parts)
 
         let milliseconds = Double(internalDate ?? "") ?? 0
-        let htmlText = html.first
-        return MailMessage(
+        let htmlText = parts.html.first
+        let referenced = MailHTML.referencedContentIDs(in: htmlText ?? "")
+        let shown = parts.inline.filter { referenced.contains($0.part.contentID.lowercased()) }
+        parts.attachments += parts.inline.filter { !referenced.contains($0.part.contentID.lowercased()) }.compactMap(\.attachment)
+        var message = MailMessage(
             id: id,
             threadID: threadId,
             account: account,
@@ -132,28 +158,53 @@ struct GmailMessageResource: Decodable {
             snippet: (snippet ?? "").htmlEntitiesDecoded,
             listID: header("List-ID"),
             labelIDs: labelIds ?? [],
-            plainText: plain.first ?? htmlText.map(\.strippingHTML) ?? "",
+            plainText: parts.plain.first ?? htmlText.map(\.strippingHTML) ?? "",
             html: htmlText,
-            attachments: attachments,
+            attachments: parts.attachments,
             rfcMessageID: header("Message-ID"),
             references: header("References"),
             replyTo: header("Reply-To")
         )
+        message.inlineParts = shown.map(\.part)
+        return message
     }
 
-    private func walk(_ part: Part, plain: inout [String], html: inout [String], attachments: inout [MailMessage.Attachment]) {
-        if let filename = part.filename, !filename.isEmpty, let attachmentID = part.body?.attachmentId {
-            attachments.append(.init(fileName: filename, mimeType: part.mimeType ?? "", attachmentID: attachmentID, size: part.body?.size ?? 0))
+    struct CollectedParts {
+        var plain: [String] = []
+        var html: [String] = []
+        var attachments: [MailMessage.Attachment] = []
+        /// With the attachment it becomes when the HTML does not show it (a photo sent "inline" from a phone).
+        var inline: [(part: MailMessage.InlinePart, attachment: MailMessage.Attachment?)] = []
+    }
+
+    private func walk(_ part: Part, into parts: inout CollectedParts) {
+        let mimeType = part.mimeType ?? ""
+        let disposition = part.header("Content-Disposition")?.lowercased() ?? ""
+        if let contentID = part.header("Content-ID").map(Self.bareContentID), !contentID.isEmpty,
+           mimeType.hasPrefix("image/"), !disposition.hasPrefix("attachment") {
+            // Shown in the HTML (cid:) when the HTML refers to it; otherwise an attachment after all (see `message`).
+            let attachment = part.filename.flatMap { name in
+                part.body?.attachmentId.map { MailMessage.Attachment(fileName: name, mimeType: mimeType, attachmentID: $0, size: part.body?.size ?? 0) }
+            }
+            parts.inline.append((.init(contentID: contentID, mimeType: mimeType, attachmentID: part.body?.attachmentId,
+                                       data: part.body?.data.flatMap(Data.init(base64URLEncoded:))), attachment))
+        } else if let filename = part.filename, !filename.isEmpty, let attachmentID = part.body?.attachmentId {
+            parts.attachments.append(.init(fileName: filename, mimeType: mimeType, attachmentID: attachmentID, size: part.body?.size ?? 0))
         } else if let data = part.body?.data, let text = Data(base64URLEncoded: data).flatMap({ String(data: $0, encoding: .utf8) }) {
-            switch part.mimeType {
-            case "text/plain": plain.append(text)
-            case "text/html": html.append(text)
+            switch mimeType {
+            case "text/plain": parts.plain.append(text)
+            case "text/html": parts.html.append(text)
             default: break
             }
         }
         for child in part.parts ?? [] {
-            walk(child, plain: &plain, html: &html, attachments: &attachments)
+            walk(child, into: &parts)
         }
+    }
+
+    /// "<logo@exemple>" → "logo@exemple".
+    static func bareContentID(_ value: String) -> String {
+        value.trimmingCharacters(in: CharacterSet(charactersIn: "<> \t"))
     }
 }
 

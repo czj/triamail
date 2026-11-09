@@ -436,6 +436,9 @@ struct MessageDetailView: View {
     @State private var remoteContentAllowedFor: MailMessage.ID?
     /// Scanned once per mail (newsletters can be hundreds of KB), not on every render.
     @State private var hasRemoteContent = false
+    /// The HTML with its inline images embedded, for the mail it was made for (this view is reused).
+    @State private var resolvedHTML: (id: MailMessage.ID, html: String)?
+    private var inlineResolved: (id: MailMessage.ID, html: String)? { resolvedHTML?.id == message.id ? resolvedHTML : nil }
     @State private var download: TranslationSession.Configuration?
 
     var body: some View {
@@ -481,7 +484,13 @@ struct MessageDetailView: View {
                     }
             }
         }
-        .task(id: message.id) { hasRemoteContent = message.html.map(MailHTML.hasRemoteContent) ?? false }
+        .task(id: message.id) {
+            hasRemoteContent = message.html.map(MailHTML.hasRemoteContent) ?? false
+            // The mail's own images (cid:), fetched off the main actor. A late answer for a mail no longer on
+            // screen is dropped (the task was cancelled when the selection changed).
+            let html = await MailHTML.withInlineImages(message, source: model.mailSource)
+            if !Task.isCancelled, let html { resolvedHTML = (message.id, html) }
+        }
         .translationTask(download) { session in
             await translations.translate(message, with: session)
         }
@@ -649,8 +658,13 @@ struct MessageDetailView: View {
                     .padding(.vertical, 6)
                     .background(.bar)
                 }
-                HTMLMailBody(html: html, allowsRemoteContent: allowsRemote)
-                    .id(message.id)
+                if MailHTML.hasInlineImages(message) && inlineResolved == nil {
+                    // Shown once, with its own images: no reload (and jump to the top) when they arrive.
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    HTMLMailBody(html: inlineResolved?.html ?? html, allowsRemoteContent: allowsRemote)
+                        .id(message.id)
+                }
             } else {
                 ScrollView {
                     ReadableText(text: message.plainText)

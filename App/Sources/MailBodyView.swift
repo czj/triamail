@@ -23,14 +23,15 @@ struct HTMLMailBody: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        // Reloads only when the remote content choice changes (the mail itself changes with the view's id).
-        guard context.coordinator.loaded != allowsRemoteContent else { return }
-        context.coordinator.loaded = allowsRemoteContent
+        // Reloads when the remote content choice changes, or when the inline images arrive (the HTML grows).
+        let key = "\(allowsRemoteContent)-\(html.utf8.count)"
+        guard context.coordinator.loaded != key else { return }
+        context.coordinator.loaded = key
         view.loadHTMLString(MailHTML.document(for: html, allowingRemoteContent: allowsRemoteContent), baseURL: nil)
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate {
-        var loaded: Bool?
+        var loaded: String?
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
             guard let url = action.request.url else { return .cancel }
