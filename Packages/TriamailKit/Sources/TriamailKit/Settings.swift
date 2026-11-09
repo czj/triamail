@@ -99,18 +99,24 @@ public struct SettingsStore: Sendable {
             .map { ReplyTemplate(id: $0.deletingPathExtension().lastPathComponent, contents: try String(contentsOf: $0, encoding: .utf8)) }
     }
 
-    /// Writes the template to `<file name from its title>.md`, renaming its file when the title changed.
-    /// Returns the template with its new ID (its file name).
+    /// Writes the template to its file. A new template, or one whose title changed, gets its file name
+    /// from the title (`<slug>.md`, the old file goes away). Returns the template as read back from disk.
     @discardableResult
     public func save(_ template: ReplyTemplate) throws -> ReplyTemplate {
         try FileManager.default.createDirectory(at: templatesFolder, withIntermediateDirectories: true)
-        let taken = Set(try templates().map(\.id)).subtracting([template.id])
-        let base = template.title.fileNameSlug.isEmpty ? "modele" : template.title.fileNameSlug
-        var id = base
-        var counter = 2
-        while taken.contains(id) {
-            id = "\(base)-\(counter)"
-            counter += 1
+        let existing = try templates()
+        var id = template.id
+        if id.isEmpty || existing.first(where: { $0.id == template.id })?.title != template.title {
+            // Compared without case: the Mac's disk does not tell "Relance.md" from "relance.md".
+            let taken = Set(existing.map { $0.id.lowercased() }).subtracting([template.id.lowercased()])
+            let base = template.title.fileNameSlug.isEmpty ? "modele" : template.title.fileNameSlug
+            id = base
+            var counter = 2
+            while taken.contains(id) {
+                id = "\(base)-\(counter)"
+                counter += 1
+            }
+            if id == template.id.lowercased() { id = template.id }
         }
         var saved = template
         saved.id = id
@@ -118,7 +124,7 @@ public struct SettingsStore: Sendable {
         if id != template.id, !template.id.isEmpty {
             try? FileManager.default.removeItem(at: file(for: template.id))
         }
-        return saved
+        return ReplyTemplate(id: id, contents: saved.fileContents)
     }
 
     public func deleteTemplate(id: ReplyTemplate.ID) throws {
@@ -131,16 +137,38 @@ public struct SettingsStore: Sendable {
         return FileManager.default.fileExists(atPath: text.path) ? text : templatesFolder.appendingPathComponent("\(id).md")
     }
 
-    /// Copies the bundled templates into the settings folder, never overwriting the user's own.
+    /// The bundled templates already copied once (a hidden file in `modeles/`): one the user deleted
+    /// or renamed is not copied again.
+    var installedTemplatesRecord: URL { templatesFolder.appendingPathComponent(".installes") }
+
+    /// Copies the bundled templates into the settings folder once each, never overwriting the user's prompts.
+    /// A copy from before front matter existed gets the bundled title, shortcut and icon on top of its own
+    /// prompt, so it does not lose its button's shortcut. A file that already has front matter is left alone.
     public func installTemplates(from bundled: URL) throws {
         try FileManager.default.createDirectory(at: templatesFolder, withIntermediateDirectories: true)
+        let record = (try? String(contentsOf: installedTemplatesRecord, encoding: .utf8)) ?? ""
+        var installed = Set(record.split(separator: "\n").map(String.init))
         let files = try FileManager.default.contentsOfDirectory(at: bundled, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
         for file in files where file.pathExtension.lowercased() == "md" && file.lastPathComponent.lowercased() != "readme.md" {
             let destination = templatesFolder.appendingPathComponent(file.lastPathComponent)
-            if !FileManager.default.fileExists(atPath: destination.path) {
+            if FileManager.default.fileExists(atPath: destination.path) {
+                // Best effort: an unreadable file (being synced, another encoding) stays as it is.
+                try? addFrontMatter(from: file, to: destination)
+            } else if !installed.contains(file.lastPathComponent) {
                 try FileManager.default.copyItem(at: file, to: destination)
             }
+            installed.insert(file.lastPathComponent)
         }
+        try installed.sorted().joined(separator: "\n").write(to: installedTemplatesRecord, atomically: true, encoding: .utf8)
+    }
+
+    private func addFrontMatter(from bundled: URL, to destination: URL) throws {
+        let mine = try String(contentsOf: destination, encoding: .utf8)
+        let theirs = try String(contentsOf: bundled, encoding: .utf8)
+        guard ReplyTemplate.frontMatter(in: mine) == nil, ReplyTemplate.frontMatter(in: theirs) != nil else { return }
+        var upgraded = ReplyTemplate(id: destination.deletingPathExtension().lastPathComponent, contents: theirs)
+        upgraded.prompt = mine
+        try upgraded.fileContents.write(to: destination, atomically: true, encoding: .utf8)
     }
 }
 

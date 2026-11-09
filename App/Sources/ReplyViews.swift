@@ -8,6 +8,8 @@ struct TemplateBar: View {
     let replies: ReplyModel
     @Environment(AppModel.self) private var model
     @State private var asking: ReplyTemplate?
+    /// A template clicked while a reply is already there: confirm before replacing it.
+    @State private var replacing: ReplyTemplate?
 
     var body: some View {
         if !model.templates.isEmpty {
@@ -27,10 +29,24 @@ struct TemplateBar: View {
             .scrollIndicators(.never)
             .background(.bar)
             .sheet(item: $asking) { ReplySheet(message: message, template: $0, replies: replies) }
+            .confirmationDialog("Remplacer la réponse en cours ?", isPresented: Binding(get: { replacing != nil }, set: { if !$0 { replacing = nil } })) {
+                Button("Rédiger « \(replacing?.label ?? "") »", role: .destructive) {
+                    if let template = replacing { start(template) }
+                }
+            } message: {
+                Text("La réponse proposée sous le mail, et tes modifications, seront perdues.")
+            }
         }
     }
 
     private func reply(with template: ReplyTemplate) {
+        switch replies.state(of: message) {
+        case .writing, .ready: replacing = template
+        case .failed, .saved, nil: start(template)
+        }
+    }
+
+    private func start(_ template: ReplyTemplate) {
         if template.arguments.isEmpty {
             replies.write(message, template: template, arguments: [:], settings: model.settings)
         } else {

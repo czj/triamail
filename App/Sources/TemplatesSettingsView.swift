@@ -46,19 +46,19 @@ struct TemplatesSettingsView: View {
                 TemplateEditor(template: draft, saved: selected, problem: shortcutProblem) {
                     save()
                 }
+                // Fresh editor state (cursor position) per template.
+                .id(draft.wrappedValue.id)
             } else {
                 ContentUnavailableView("Aucun modèle sélectionné", systemImage: "text.bubble")
                     .frame(maxWidth: .infinity)
             }
         }
         .onChange(of: selection) { oldID, id in
-            // Moving to another template keeps the edits of this one.
-            if let draft, draft.id == oldID, draft != model.templates.first(where: { $0.id == oldID }),
-               !draft.title.trimmingCharacters(in: .whitespaces).isEmpty {
-                model.saveTemplate(draft)
-            }
+            if draft?.id == oldID { keepEdits() }
             draft = model.templates.first { $0.id == id }
         }
+        // Closing Settings or switching tab keeps the edits too.
+        .onDisappear { keepEdits() }
         .task {
             model.reloadTemplates()
             selection = selection ?? model.templates.first?.id
@@ -86,6 +86,13 @@ struct TemplatesSettingsView: View {
 
     private func add(_ template: ReplyTemplate) {
         if let saved = model.saveTemplate(template) { selection = saved.id }
+    }
+
+    /// Leaving a template saves its edits, as long as it still has a name.
+    private func keepEdits() {
+        guard let draft, let saved = model.templates.first(where: { $0.id == draft.id }), draft != saved,
+              !draft.title.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        model.saveTemplate(draft)
     }
 
     private func save() {
@@ -178,56 +185,74 @@ private struct TemplateEditor: View {
 }
 
 /// Click, then press the keys: the shortcut is recorded. ⌫ clears it, Échap cancels.
+/// ⌘ or ⌃ is required, so typing in the mail window never triggers a template.
 private struct ShortcutRecorder: View {
     @Binding var shortcut: TemplateShortcut?
     @State private var recording = false
-    @FocusState private var focused: Bool
+    /// While recording, key presses go here first: ⌘S or ⌘W are recorded instead of saving or closing.
+    @State private var monitor: Any?
 
     var body: some View {
         HStack {
-            Text(recording ? "Tape le raccourci…" : shortcut?.symbols ?? "Aucun")
-                .monospaced()
-                .foregroundStyle(recording ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .frame(minWidth: 120)
-                .background(.quaternary, in: .rect(cornerRadius: 5))
-                .overlay { if recording { RoundedRectangle(cornerRadius: 5).stroke(.tint) } }
-                .focusable()
-                .focused($focused)
-                .onTapGesture {
-                    recording = true
-                    focused = true
-                }
-                .onKeyPress(phases: .down) { press in
-                    guard recording else { return .ignored }
-                    switch press.key {
-                    case .escape:
-                        break
-                    case .delete, .deleteForward:
-                        shortcut = nil
-                    default:
-                        guard let key = press.characters.first, !key.isWhitespace else { return .handled }
-                        var modifiers: Set<TemplateShortcut.Modifier> = []
-                        if press.modifiers.contains(.command) { modifiers.insert(.cmd) }
-                        if press.modifiers.contains(.shift) { modifiers.insert(.shift) }
-                        if press.modifiers.contains(.option) { modifiers.insert(.option) }
-                        if press.modifiers.contains(.control) { modifiers.insert(.control) }
-                        shortcut = TemplateShortcut(modifiers: modifiers, key: key)
-                    }
-                    recording = false
-                    return .handled
-                }
-                .onChange(of: focused) { _, isFocused in if !isFocused { recording = false } }
-                .accessibilityLabel("Raccourci clavier")
-                .accessibilityValue(shortcut?.symbols ?? "Aucun")
-                .accessibilityAddTraits(.isButton)
+            Button {
+                recording.toggle()
+            } label: {
+                Text(recording ? "Tape le raccourci…" : shortcut?.symbols ?? "Aucun")
+                    .monospaced()
+                    .frame(minWidth: 110)
+            }
+            .tint(recording ? .accentColor : nil)
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Raccourci clavier")
+            .accessibilityValue(shortcut?.symbols ?? "Aucun")
+            .accessibilityHint("Active, puis tape la combinaison de touches")
+            .onChange(of: recording) { _, isRecording in
+                if isRecording { startMonitor() } else { stopMonitor() }
+            }
+            .onDisappear { recording = false }
             if shortcut != nil {
                 Button("Effacer", systemImage: "xmark.circle.fill") { shortcut = nil }
                     .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func startMonitor() {
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            MainActor.assumeIsolated { record(event) }
+            return nil
+        }
+    }
+
+    private func stopMonitor() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
+    }
+
+    private func record(_ event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        switch event.keyCode {
+        case 53: // Escape
+            recording = false
+        case 51, 117: // Delete, forward delete
+            shortcut = nil
+            recording = false
+        default:
+            // The key itself, not what Shift or Option make of it: ⇧⌘1 is "1", not "!".
+            guard flags.contains(.command) || flags.contains(.control),
+                  let key = event.characters(byApplyingModifiers: [])?.first, !key.isWhitespace else {
+                NSSound.beep()
+                return
+            }
+            var modifiers: Set<TemplateShortcut.Modifier> = []
+            if flags.contains(.command) { modifiers.insert(.cmd) }
+            if flags.contains(.shift) { modifiers.insert(.shift) }
+            if flags.contains(.option) { modifiers.insert(.option) }
+            if flags.contains(.control) { modifiers.insert(.control) }
+            shortcut = TemplateShortcut(modifiers: modifiers, key: key)
+            recording = false
         }
     }
 }

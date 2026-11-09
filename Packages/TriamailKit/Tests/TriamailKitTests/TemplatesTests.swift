@@ -121,6 +121,69 @@ import Testing
         #expect(try store.templates().map(\.id) == ["relancer"])
     }
 
+    @Test func installAddsFrontMatterToOldCopiesAndKeepsTheirPrompt() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bundled = root.appendingPathComponent("bundle")
+        try FileManager.default.createDirectory(at: bundled, withIntermediateDirectories: true)
+        try "---\ntitre: Répondre\nraccourci: cmd+shift+1\n---\nPrompt livré".write(to: bundled.appendingPathComponent("repondre.md"), atomically: true, encoding: .utf8)
+        try "---\ntitre: Nouveau\n---\nAutre".write(to: bundled.appendingPathComponent("nouveau.md"), atomically: true, encoding: .utf8)
+        let store = SettingsStore(folder: root.appendingPathComponent("reglages"))
+        try FileManager.default.createDirectory(at: store.templatesFolder, withIntermediateDirectories: true)
+        // A copy from an older version, edited by the user, without front matter.
+        try "Mon prompt à moi".write(to: store.templatesFolder.appendingPathComponent("repondre.md"), atomically: true, encoding: .utf8)
+
+        try store.installTemplates(from: bundled)
+        var templates = try store.templates()
+        #expect(templates.map(\.id) == ["nouveau", "repondre"])
+        #expect(templates[1].title == "Répondre")
+        #expect(templates[1].shortcut == TemplateShortcut("cmd+shift+1"))
+        #expect(templates[1].prompt == "Mon prompt à moi")
+
+        // Once it has front matter, the user's choices win (here: no shortcut).
+        templates[1].shortcut = nil
+        try store.save(templates[1])
+        try store.installTemplates(from: bundled)
+        #expect(try store.templates()[1].shortcut == nil)
+    }
+
+    @Test func readsWindowsLineEndings() {
+        let template = ReplyTemplate(id: "x", contents: "---\r\ntitre: Relance\r\nraccourci: cmd+shift+5\r\n---\r\nBonjour")
+        #expect(template.title == "Relance")
+        #expect(template.shortcut == TemplateShortcut("cmd+shift+5"))
+        #expect(template.prompt == "Bonjour")
+    }
+
+    @Test func savingWithTheSameTitleKeepsTheFileName() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let store = SettingsStore(folder: folder)
+        try FileManager.default.createDirectory(at: store.templatesFolder, withIntermediateDirectories: true)
+        try "---\ntitre: Renvoyer vers le support\n---\nTexte".write(to: store.templatesFolder.appendingPathComponent("renvoyer-vers-support.md"), atomically: true, encoding: .utf8)
+        try "Mon texte".write(to: store.templatesFolder.appendingPathComponent("Relance.md"), atomically: true, encoding: .utf8)
+        var support = try #require(try store.templates().first { $0.id == "renvoyer-vers-support" })
+        support.icon = "lifepreserver"
+        #expect(try store.save(support).id == "renvoyer-vers-support")
+        // Only the case differs from the slug: same file on the Mac's disk, kept as it is.
+        var relance = try #require(try store.templates().first { $0.id == "Relance" })
+        relance.title = "relance"
+        #expect(try store.save(relance).id == "Relance")
+        #expect(try store.templates().map(\.id).sorted() == ["Relance", "renvoyer-vers-support"])
+    }
+
+    @Test func deletedBundledTemplatesDoNotComeBack() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bundled = root.appendingPathComponent("bundle")
+        try FileManager.default.createDirectory(at: bundled, withIntermediateDirectories: true)
+        try "Texte".write(to: bundled.appendingPathComponent("loufoque.md"), atomically: true, encoding: .utf8)
+        let store = SettingsStore(folder: root.appendingPathComponent("reglages"))
+        try store.installTemplates(from: bundled)
+        try store.deleteTemplate(id: "loufoque")
+        try store.installTemplates(from: bundled)
+        #expect(try store.templates().isEmpty)
+    }
+
     @Test func oldSettingsHaveAnEmptyProfile() throws {
         let settings = try JSONDecoder().decode(SharedSettings.self, from: Data(#"{"version":1}"#.utf8))
         #expect(settings.profile == Profile())

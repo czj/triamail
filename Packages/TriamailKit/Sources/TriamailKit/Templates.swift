@@ -126,7 +126,8 @@ public struct ReplyTemplate: Identifiable, Hashable, Sendable {
 
     /// `---` on the first line, `key: value` lines, `---`: the fields and the text after them.
     static func frontMatter(in contents: String) -> ([String: String], String)? {
-        let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
+        // "\r\n" is one Character in Swift: Windows line endings would hide every line break.
+        let lines = contents.replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n", omittingEmptySubsequences: false)
         guard lines.first?.trimmingCharacters(in: .whitespaces) == "---",
               let end = lines.dropFirst().firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == "---" }) else { return nil }
         var fields: [String: String] = [:]
@@ -139,7 +140,7 @@ public struct ReplyTemplate: Identifiable, Hashable, Sendable {
 
     /// The app's own shortcuts on the mail window: a template cannot take them.
     public static let reservedShortcuts: [TemplateShortcut] = [String]([
-        "e", "s", "cmd+r", "cmd+shift+r", "cmd+shift+y", "cmd+shift+k", "cmd+option+0",
+        "cmd+e", "cmd+s", "cmd+r", "cmd+shift+r", "cmd+shift+y", "cmd+shift+k", "cmd+option+0",
         "cmd+1", "cmd+2", "cmd+3", "cmd+4", "cmd+,", "cmd+n", "cmd+w", "cmd+q", "cmd+f",
     ]).compactMap(TemplateShortcut.init)
 

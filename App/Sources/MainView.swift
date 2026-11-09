@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 @preconcurrency import Translation
 import TriamailKit
@@ -70,6 +71,10 @@ struct MainView: View {
             if selection == nil { selection = model.initialSelection }
         }
         .task(id: inbox.messages.map(\.id)) { await translations.process(inbox.messages) }
+        // Templates edited by hand or synced from another Mac: their buttons follow when you come back.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.reloadTemplates()
+        }
     }
 
     @ViewBuilder private var messageList: some View {

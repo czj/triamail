@@ -122,13 +122,18 @@ final class AppModel {
         do {
             settings = try store.load()
             loadFailed = false
-            if let bundled = Bundle.main.url(forResource: "modeles", withExtension: nil) {
-                try store.installTemplates(from: bundled)
-            }
             lastError = nil
         } catch {
             loadFailed = true
             lastError = "Impossible de lire les réglages : \(error.localizedDescription). Rien ne sera enregistré tant que le fichier n'est pas corrigé."
+        }
+        // Apart from the settings: a template that cannot be installed never blocks saving them.
+        if let bundled = Bundle.main.url(forResource: "modeles", withExtension: nil) {
+            do {
+                try store.installTemplates(from: bundled)
+            } catch {
+                lastError = "Impossible d'installer les modèles fournis : \(error.localizedDescription)"
+            }
         }
         reloadTemplates()
     }
