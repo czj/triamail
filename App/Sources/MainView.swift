@@ -21,7 +21,7 @@ struct MainView: View {
         let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
             messageList
-                .navigationSplitViewColumnWidth(min: 280, ideal: 340, max: 480)
+                .navigationSplitViewColumnWidth(min: MainWindowLayout.listMin, ideal: MainWindowLayout.listIdeal, max: MainWindowLayout.listMax)
         } detail: {
             Group {
                 if let message = selected {
@@ -32,10 +32,13 @@ struct MainView: View {
                     ContentUnavailableView("Aucun mail sélectionné", systemImage: "envelope.open")
                 }
             }
-            .inspector(isPresented: Binding(get: { showsSidePane && !sideContents.isEmpty }, set: { showsSidePane = $0 })) {
+            // The mail stays readable next to the side pane: without it, the pane squeezed it to one letter per line.
+            .frame(minWidth: MainWindowLayout.mailMin, maxWidth: .infinity)
+            // Only the toolbar toggle changes the preference: the pane collapsing for lack of room does not.
+            .inspector(isPresented: .constant(showsSidePane && !sideContents.isEmpty)) {
                 if let message = selected {
                     SidePane(message: message, contents: sideContents, settings: model.settings) { markDone(message) }
-                        .inspectorColumnWidth(min: 320, ideal: 520, max: 1000)
+                        .inspectorColumnWidth(min: MainWindowLayout.sidePaneMin, ideal: 440, max: 720)
                 }
             }
         }
@@ -141,6 +144,18 @@ struct MainView: View {
             }
         }
     }
+}
+
+/// Column widths of the main window; the window's minimum is their sum.
+enum MainWindowLayout {
+    static let listMin: CGFloat = 280
+    /// The list opens at this width: the window's minimum leaves the mail and side pane their own minimums.
+    static let listIdeal: CGFloat = 300
+    static let listMax: CGFloat = 480
+    static let mailMin: CGFloat = 360
+    static let sidePaneMin: CGFloat = 320
+    /// The list at its opening width, the mail and the side pane at their minimums, and the dividers.
+    static let windowMin = listIdeal + mailMin + sidePaneMin + 2
 }
 
 /// The categories, as a compact filter on top of the list instead of a sidebar.
