@@ -509,48 +509,48 @@ struct MessageDetailView: View {
 
     /// Four items; everything else is in "…" and in the "Mail" menu, with the shortcuts.
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
-            ToolbarItem {
-                Button("Traité", systemImage: "checkmark") { markDone() }
-                    .help("Traité (⌘E) : archive le mail, il sort de la liste")
+        ToolbarItem {
+            Button("Traité", systemImage: "checkmark") { markDone() }
+                .help("Traité (⌘E) : archive le mail, il sort de la liste")
+        }
+        ToolbarItem {
+            Menu("Répondre", systemImage: "arrowshape.turn.up.left") {
+                TemplateMenuItems(model: model, action: reply(with:))
             }
-            ToolbarItem {
-                Menu("Répondre", systemImage: "arrowshape.turn.up.left") {
-                    TemplateMenuItems(model: model, action: reply(with:))
-                }
-                .help("Rédiger une réponse avec un modèle (raccourcis dans le menu Mail)")
+            .help("Rédiger une réponse avec un modèle (raccourcis dans le menu Mail)")
+        }
+        ToolbarItem {
+            Menu("Rappel", systemImage: "bell") {
+                ReminderPresetItems(action: addReminder)
+                Divider()
+                Button("Choisir une date…") { choosingReminderDate = true }
             }
-            ToolbarItem {
-                Menu("Rappel", systemImage: "bell") {
-                    ReminderPresetItems(action: addReminder)
-                    Divider()
-                    Button("Choisir une date…") { choosingReminderDate = true }
-                }
-                .help("Créer un rappel dans Rappels")
-                .popover(isPresented: $choosingReminderDate) {
-                    VStack {
-                        DatePicker("Rappel le", selection: $reminderDate, in: Date.now..., displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                        Button("Créer le rappel") {
-                            choosingReminderDate = false
-                            addReminder(.on(reminderDate))
-                        }
-                        .keyboardShortcut(.defaultAction)
+            .help("Créer un rappel dans Rappels")
+            .popover(isPresented: $choosingReminderDate) {
+                VStack {
+                    DatePicker("Rappel le", selection: $reminderDate, in: Date.now..., displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                    Button("Créer le rappel") {
+                        choosingReminderDate = false
+                        addReminder(.on(reminderDate))
                     }
-                    .padding()
+                    .keyboardShortcut(.defaultAction)
+                }
+                .padding()
+            }
+        }
+        ToolbarItem {
+            Menu("Plus", systemImage: "ellipsis.circle") {
+                Button("Résumer", systemImage: "text.line.first.and.arrowtriangle.forward", action: summarize)
+                if message.gitHubRepository != nil {
+                    Button("Ouvrir Claude Code", systemImage: "terminal", action: launchClaudeCode)
+                }
+                if let link = message.primaryLink {
+                    Link(destination: link) { Label("Ouvrir dans le navigateur (\(link.host() ?? "lien"))", systemImage: "safari") }
                 }
             }
-            ToolbarItem {
-                Menu("Plus", systemImage: "ellipsis.circle") {
-                    Button("Résumer", systemImage: "text.line.first.and.arrowtriangle.forward", action: summarize)
-                    if message.gitHubRepository != nil {
-                        Button("Ouvrir Claude Code", systemImage: "terminal", action: launchClaudeCode)
-                    }
-                    if let link = message.primaryLink {
-                        Link(destination: link) { Label("Ouvrir dans le navigateur (\(link.host() ?? "lien"))", systemImage: "safari") }
-                    }
-                }
-                .help("Résumer, Claude Code, navigateur")
-            }
+            .help("Résumer, Claude Code, navigateur")
+        }
     }
 
     private var sheetOpen: Bool { windowSheetOpen || asking != nil || replacing != nil || choosingReminderDate }
@@ -563,7 +563,7 @@ struct MessageDetailView: View {
         Task {
             do {
                 try await ClaudeCodeLauncher.launch(message, settings: settings)
-                status = "Claude Code lancé dans \(message.gitHubRepository ?? "le dépôt")"
+                status = "Claude Code lancé dans \(message.gitHubRepository ?? "")"
             } catch {
                 status = error.localizedDescription
             }
