@@ -21,26 +21,6 @@ extension View {
     }
 }
 
-/// The toolbar's account menu: connected accounts, then "Ajouter un compte Google".
-struct AccountMenu: View {
-    @Environment(AppModel.self) private var model
-    @State private var askingClient = false
-
-    var body: some View {
-        Menu("Comptes", systemImage: "person.crop.circle") {
-            if !model.accounts.isEmpty {
-                Section("Comptes connectés") {
-                    ForEach(model.accounts) { Text($0.email) }
-                }
-            }
-            AddGoogleAccountButton(askingClient: $askingClient)
-            SettingsLink { Text("Gérer les comptes…") }
-        }
-        .help("Comptes Google")
-        .oauthClientSheet(isPresented: $askingClient)
-    }
-}
-
 /// Asked once, before the first sign-in: the OAuth client the user created in the Google Cloud console.
 /// Sign-in starts as soon as it is saved.
 private struct OAuthClientSheet: View {

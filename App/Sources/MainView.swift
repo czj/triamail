@@ -3,7 +3,7 @@ import SwiftUI
 @preconcurrency import Translation
 import TriamailKit
 
-/// Three panes, like Mimestream or Reeder: the mails in one long list, the mail itself,
+/// A native mail client's layout: mailboxes and accounts in the sidebar, the mails, the mail itself,
 /// and on the right what the mail points to (the GitHub page, the invoice PDF).
 struct MainView: View {
     @Environment(AppModel.self) private var model
@@ -20,6 +20,9 @@ struct MainView: View {
         let selected = selectedMessage
         let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
+            Sidebar(mailbox: $mailbox, unreadCounts: inbox.unreadCounts)
+                .navigationSplitViewColumnWidth(min: MainWindowLayout.sidebarMin, ideal: MainWindowLayout.sidebarIdeal, max: 280)
+        } content: {
             messageList
                 .navigationSplitViewColumnWidth(min: MainWindowLayout.listMin, ideal: MainWindowLayout.listIdeal, max: MainWindowLayout.listMax)
         } detail: {
@@ -43,15 +46,14 @@ struct MainView: View {
             }
         }
         .navigationTitle(mailbox.title)
-        .searchable(text: $search, placement: .sidebar, prompt: "Rechercher")
+        .searchable(text: $search, placement: .toolbar, prompt: "Rechercher")
+        // ⌘1…⌘4 in the "Boîte" menu (MailboxCommands) switch the mailbox of the window in front.
+        .focusedSceneValue(\.mailbox, $mailbox)
         .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
                     .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
-            }
-            ToolbarItem(placement: .navigation) {
-                AccountMenu()
             }
             ToolbarItem {
                 Button("Actualiser", systemImage: "arrow.clockwise") {
@@ -95,9 +97,6 @@ struct MainView: View {
             let messages = visibleMessages
             List(messages, selection: $selection) { message in
                 MessageRow(message: message, language: translations.language(of: message))
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                MailboxFilter(selection: $mailbox, counts: inbox.counts)
             }
             .overlay {
                 if inbox.loading && messages.isEmpty {
@@ -148,40 +147,67 @@ struct MainView: View {
 
 /// Column widths of the main window; the window's minimum is their sum.
 enum MainWindowLayout {
-    static let listMin: CGFloat = 280
+    static let sidebarMin: CGFloat = 170
+    static let sidebarIdeal: CGFloat = 190
+    static let listMin: CGFloat = 260
     /// The list opens at this width: the window's minimum leaves the mail and side pane their own minimums.
-    static let listIdeal: CGFloat = 300
+    static let listIdeal: CGFloat = 290
     static let listMax: CGFloat = 480
     static let mailMin: CGFloat = 360
-    static let sidePaneMin: CGFloat = 320
-    /// The list at its opening width, the mail and the side pane at their minimums, and the dividers.
-    static let windowMin = listIdeal + mailMin + sidePaneMin + 2
+    static let sidePaneMin: CGFloat = 300
+    /// Sidebar and list at their opening widths, the mail and the side pane at their minimums, and the dividers.
+    static let windowMin = sidebarIdeal + listIdeal + mailMin + sidePaneMin + 3
 }
 
-/// The categories, as a compact filter on top of the list instead of a sidebar.
-private struct MailboxFilter: View {
-    @Binding var selection: Mailbox
-    let counts: [Mailbox: Int]
+/// The mailboxes with their unread counts, then the connected accounts.
+private struct Sidebar: View {
+    @Binding var mailbox: Mailbox
+    let unreadCounts: [Mailbox: Int]
+    @Environment(AppModel.self) private var model
+    @State private var askingClient = false
 
     var body: some View {
-        Picker("Filtre", selection: $selection) {
-            ForEach(Mailbox.allCases) { mailbox in
-                (Text(mailbox.shortTitle) + Text(verbatim: " \(counts[mailbox, default: 0])").foregroundStyle(.secondary))
-                    .tag(mailbox)
+        List(selection: Binding(get: { mailbox }, set: { if let new = $0 { mailbox = new } })) {
+            Section("Boîtes") {
+                ForEach(Mailbox.allCases) { box in
+                    Label(box.title, systemImage: box.symbol)
+                        // A zero badge is hidden.
+                        .badge(unreadCounts[box, default: 0])
+                        .tag(box)
+                }
+            }
+            Section("Comptes") {
+                ForEach(model.accounts) { account in
+                    Label(account.email, systemImage: "person.crop.circle")
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(account.email)
+                }
+                AddGoogleAccountButton(askingClient: $askingClient)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background {
-            // ⌘1…⌘4 switch the filter.
-            ForEach(Array(Mailbox.allCases.enumerated()), id: \.offset) { index, mailbox in
-                Button("") { selection = mailbox }
+        .listStyle(.sidebar)
+        .oauthClientSheet(isPresented: $askingClient)
+    }
+}
+
+extension FocusedValues {
+    /// The mailbox shown in the window in front, for the "Boîte" menu.
+    @Entry var mailbox: Binding<Mailbox>?
+}
+
+/// The "Boîte" menu: ⌘1…⌘4 switch the mailbox of the window in front.
+struct MailboxCommands: Commands {
+    @FocusedBinding(\.mailbox) private var mailbox
+
+    var body: some Commands {
+        CommandMenu("Boîte") {
+            ForEach(Array(Mailbox.allCases.enumerated()), id: \.element) { index, box in
+                Button(box.title) { mailbox = box }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
-                    .opacity(0)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                    .disabled(mailbox == nil)
             }
         }
     }
@@ -474,12 +500,12 @@ extension SideContent {
 }
 
 extension Mailbox {
-    var shortTitle: LocalizedStringKey {
+    var symbol: String {
         switch self {
-        case .toTriage: "Tout"
-        case .github: "GitHub"
-        case .invoices: "Factures"
-        case .direct: "Pour moi"
+        case .toTriage: "tray"
+        case .github: "chevron.left.forwardslash.chevron.right"
+        case .invoices: "doc.text"
+        case .direct: "person"
         }
     }
 
