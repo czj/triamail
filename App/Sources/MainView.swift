@@ -14,6 +14,8 @@ struct MainView: View {
     @State private var tidying = false
     /// Feedback of the list's own actions (a reminder created from a row).
     @State private var listStatus: ListStatus?
+    /// The day the list's dates are relative to.
+    @State private var today = Date.now
 
     struct ListStatus: Equatable {
         let id = UUID()
@@ -108,8 +110,12 @@ struct MainView: View {
         } else {
             let messages = visibleMessages
             List(messages, selection: $selection) { message in
-                MessageRow(message: message, language: translations.language(of: message),
+                MessageRow(message: message, language: translations.language(of: message), today: today,
                            markDone: { markDone(message) }, remind: { remind(message, $0) })
+            }
+            // One event a day for the whole list: "09:05" becomes "lundi" after midnight.
+            .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged).receive(on: RunLoop.main)) { _ in
+                today = .now
             }
             .overlay {
                 if inbox.loading && messages.isEmpty {
@@ -119,24 +125,26 @@ struct MainView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    if let error = inbox.error {
-                        Text(error).foregroundStyle(.red)
+                if inbox.error != nil || listStatus != nil {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let error = inbox.error {
+                            Text(error).foregroundStyle(.red)
+                        }
+                        if let listStatus {
+                            Label(listStatus.text, systemImage: listStatus.failed ? "exclamationmark.triangle" : "bell")
+                                .foregroundStyle(listStatus.failed ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
+                                // Keyed on the status itself: a second identical message restarts the timer.
+                                .task(id: listStatus.id) {
+                                    try? await Task.sleep(for: .seconds(listStatus.failed ? 8 : 4))
+                                    if self.listStatus?.id == listStatus.id { self.listStatus = nil }
+                                }
+                        }
                     }
-                    if let listStatus {
-                        Label(listStatus.text, systemImage: listStatus.failed ? "exclamationmark.triangle" : "bell")
-                            .foregroundStyle(listStatus.failed ? AnyShapeStyle(.red) : AnyShapeStyle(.primary))
-                            // Keyed on the status itself: a second identical message restarts the timer.
-                            .task(id: listStatus.id) {
-                                try? await Task.sleep(for: .seconds(listStatus.failed ? 8 : 4))
-                                if self.listStatus?.id == listStatus.id { self.listStatus = nil }
-                            }
-                    }
+                    .font(.caption)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.bar)
                 }
-                .font(.caption)
-                .padding(inbox.error == nil && listStatus == nil ? 0 : 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(inbox.error == nil && listStatus == nil ? AnyShapeStyle(.clear) : AnyShapeStyle(.bar))
             }
         }
     }
@@ -144,13 +152,8 @@ struct MainView: View {
     /// A reminder from the list (hover or right-click), without opening the mail.
     private func remind(_ message: MailMessage, _ delay: ReminderDelay) {
         Task {
-            do {
-                let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now),
-                                                                 listName: model.settings.remindersListName)
-                listStatus = ListStatus(text: "Rappel \(delay.title) créé dans « \(list) »")
-            } catch {
-                listStatus = ListStatus(text: error.localizedDescription, failed: true)
-            }
+            let result = await RemindersService.shared.remind(message, delay, listName: model.settings.remindersListName)
+            listStatus = ListStatus(text: result.text, failed: result.failed)
         }
     }
 
@@ -279,6 +282,7 @@ struct SenderAvatar: View {
 private struct MessageRow: View {
     let message: MailMessage
     let language: Locale.Language?
+    let today: Date
     let markDone: () -> Void
     let remind: (ReminderDelay) -> Void
     @State private var hovering = false
@@ -306,12 +310,11 @@ private struct MessageRow: View {
         // A row archived or scrolled away under the pointer gets no hover-exit.
         .onDisappear { hovering = false }
         .contextMenu {
-            Button("Traité", systemImage: "checkmark", action: markDone)
-            reminderMenu
+            doneButton
+            Menu("Rappel", systemImage: "bell") { ReminderPresetItems(action: remind) }
         }
         .swipeActions(edge: .trailing) {
-            Button("Traité", systemImage: "checkmark", action: markDone)
-                .tint(.green)
+            doneButton.tint(.green)
         }
         .accessibilityElement(children: .combine)
         .accessibilityValue(message.isUnread ? Text("Non lu") : Text(""))
@@ -325,13 +328,10 @@ private struct MessageRow: View {
                     .fontWeight(message.isUnread ? .semibold : .medium)
                     .lineLimit(1)
                 Spacer(minLength: 6)
-                // Follows the clock: "09:05" becomes "lundi" after midnight without a refresh.
-                TimelineView(.everyMinute) { context in
-                    Text(ListDate.text(for: message.date, now: context.date))
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundStyle(message.isUnread ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-                }
+                Text(ListDate.text(for: message.date, now: today))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(message.isUnread ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
             }
             Text(message.subject)
                 .font(.callout)
@@ -373,10 +373,10 @@ private struct MessageRow: View {
 
     private var hoverActions: some View {
         HStack(spacing: 2) {
-            Button("Traité", systemImage: "checkmark", action: markDone)
+            doneButton
                 .help("Traité : archive le mail")
             Menu {
-                reminderItems
+                ReminderPresetItems(action: remind)
             } label: {
                 Label("Rappel", systemImage: "bell")
             }
@@ -392,13 +392,18 @@ private struct MessageRow: View {
         .accessibilityHidden(true)
     }
 
-    private var reminderMenu: some View {
-        Menu("Rappel", systemImage: "bell") { reminderItems }
+    private var doneButton: some View {
+        Button("Traité", systemImage: "checkmark", action: markDone)
     }
+}
 
-    private var reminderItems: some View {
+/// "J+1", "J+3", "J+7": the reminder presets, in every reminder menu.
+struct ReminderPresetItems: View {
+    let action: (ReminderDelay) -> Void
+
+    var body: some View {
         ForEach(ReminderDelay.presets, id: \.self) { delay in
-            Button(delay.title) { remind(delay) }
+            Button(delay.title) { action(delay) }
         }
     }
 }
@@ -482,9 +487,7 @@ struct MessageDetailView: View {
             }
             ToolbarItem {
                 Menu("Rappel", systemImage: "bell") {
-                    ForEach(ReminderDelay.presets, id: \.self) { delay in
-                        Button(delay.title) { addReminder(delay) }
-                    }
+                    ReminderPresetItems(action: addReminder)
                     Divider()
                     Button("Choisir une date…") { choosingReminderDate = true }
                 }
@@ -511,14 +514,7 @@ struct MessageDetailView: View {
     }
 
     private func addReminder(_ delay: ReminderDelay) {
-        Task {
-            do {
-                let list = try await RemindersService.shared.add(ReminderDraft(message: message), due: delay.dueDate(from: .now), listName: settings.remindersListName)
-                status = "Rappel \(delay.title) créé dans « \(list) »"
-            } catch {
-                status = error.localizedDescription
-            }
-        }
+        Task { status = await RemindersService.shared.remind(message, delay, listName: settings.remindersListName).text }
     }
 
     private var isTranslated: Bool { translations.language(of: message) != nil }
