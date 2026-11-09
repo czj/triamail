@@ -32,10 +32,12 @@ struct MainView: View {
                     ContentUnavailableView("Aucun mail sélectionné", systemImage: "envelope.open")
                 }
             }
+            // The mail stays readable next to the side pane: without it, the pane squeezed it to one letter per line.
+            .frame(minWidth: 360, maxWidth: .infinity)
             .inspector(isPresented: Binding(get: { showsSidePane && !sideContents.isEmpty }, set: { showsSidePane = $0 })) {
                 if let message = selected {
                     SidePane(message: message, contents: sideContents, settings: model.settings) { markDone(message) }
-                        .inspectorColumnWidth(min: 320, ideal: 520, max: 1000)
+                        .inspectorColumnWidth(min: 320, ideal: 440, max: 1000)
                 }
             }
         }

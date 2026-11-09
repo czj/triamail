@@ -11,7 +11,8 @@ struct TriamailApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
-                .frame(minWidth: 900, minHeight: 560)
+                // List (280) + mail (360) + side pane (320), at their minimum widths.
+                .frame(minWidth: 960, minHeight: 560)
                 .environment(model)
         }
         .windowToolbarStyle(.unified)
