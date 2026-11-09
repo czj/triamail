@@ -74,10 +74,10 @@ jobs:
       # unzip, `xattr -dr com.apple.quarantine Triamail.app`, then `open -n Triamail.app --args -demo`.
       # Main has the signed release builds instead.
       - name: Zip the app
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release-please--') }}
         run: ditto -c -k --keepParent DerivedData/Build/Products/Debug/Triamail.app Triamail-debug.zip
       - name: Upload the app
-        if: ${{ github.event_name != 'push' }}
+        if: ${{ github.event_name != 'push' && !startsWith(github.ref_name, 'release-please--') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: Triamail-debug.zip

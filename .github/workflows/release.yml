@@ -20,6 +20,11 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      # Only this job: to start CI on the release PR (see below).
+      actions: write
     outputs:
       created: ${{ steps.rp.outputs.release_created }}
       tag: ${{ steps.rp.outputs.tag_name }}
@@ -29,6 +34,22 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+      # A PR pushed with GITHUB_TOKEN starts no workflow, so the release PR never got its "CI passed" check
+      # and auto-merge waited forever. A workflow_dispatch is the exception: it runs, on the PR's head commit.
+      # On every push to main while a release PR is open, even when this run left it unchanged.
+      # A failure here does not fail the release: run `gh workflow run ci.yml --ref <release branch>` by hand.
+      - name: CI on the release PR
+        if: ${{ steps.rp.outputs.release_created != 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --search "head:release-please--branches--main" \
+            --json headRefName --jq '.[0].headRefName // empty')
+          if [ -n "$branch" ]; then
+            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch" \
+              || echo "::warning::CI not started on $branch: run it by hand"
+          fi
 
   build-app:
     needs: release-please
