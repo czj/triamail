@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import TriamailKit
 
@@ -57,12 +58,27 @@ struct TemplateBar: View {
 
 extension TemplateShortcut {
     var keyboardShortcut: KeyboardShortcut {
-        var modifiers: EventModifiers = []
-        if self.modifiers.contains(.cmd) { modifiers.insert(.command) }
-        if self.modifiers.contains(.shift) { modifiers.insert(.shift) }
-        if self.modifiers.contains(.option) { modifiers.insert(.option) }
-        if self.modifiers.contains(.control) { modifiers.insert(.control) }
-        return KeyboardShortcut(KeyEquivalent(key), modifiers: modifiers)
+        KeyboardShortcut(KeyEquivalent(key), modifiers: EventModifiers(modifiers.map(\.eventModifier)))
+    }
+}
+
+extension TemplateShortcut.Modifier {
+    var eventModifier: EventModifiers {
+        switch self {
+        case .cmd: .command
+        case .shift: .shift
+        case .option: .option
+        case .control: .control
+        }
+    }
+
+    var eventFlag: NSEvent.ModifierFlags {
+        switch self {
+        case .cmd: .command
+        case .shift: .shift
+        case .option: .option
+        case .control: .control
+        }
     }
 }
 

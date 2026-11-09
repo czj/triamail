@@ -59,10 +59,7 @@ struct TemplatesSettingsView: View {
         }
         // Closing Settings or switching tab keeps the edits too.
         .onDisappear { keepEdits() }
-        .task {
-            model.reloadTemplates()
-            selection = selection ?? model.templates.first?.id
-        }
+        .task { selection = selection ?? model.templates.first?.id }
         .confirmationDialog("Supprimer « \(selected?.title ?? "") » ?", isPresented: $confirmingDelete) {
             Button("Supprimer le modèle", role: .destructive) {
                 guard let selected else { return }
@@ -246,12 +243,7 @@ private struct ShortcutRecorder: View {
                 NSSound.beep()
                 return
             }
-            var modifiers: Set<TemplateShortcut.Modifier> = []
-            if flags.contains(.command) { modifiers.insert(.cmd) }
-            if flags.contains(.shift) { modifiers.insert(.shift) }
-            if flags.contains(.option) { modifiers.insert(.option) }
-            if flags.contains(.control) { modifiers.insert(.control) }
-            shortcut = TemplateShortcut(modifiers: modifiers, key: key)
+            shortcut = TemplateShortcut(modifiers: Set(TemplateShortcut.Modifier.allCases.filter { flags.contains($0.eventFlag) }), key: key)
             recording = false
         }
     }

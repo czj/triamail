@@ -147,19 +147,23 @@ public struct SettingsStore: Sendable {
     public func installTemplates(from bundled: URL) throws {
         try FileManager.default.createDirectory(at: templatesFolder, withIntermediateDirectories: true)
         let record = (try? String(contentsOf: installedTemplatesRecord, encoding: .utf8)) ?? ""
-        var installed = Set(record.split(separator: "\n").map(String.init))
+        let recorded = Set(record.split(separator: "\n").map(String.init))
+        var installed = recorded
         let files = try FileManager.default.contentsOfDirectory(at: bundled, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
-        for file in files where file.pathExtension.lowercased() == "md" && file.lastPathComponent.lowercased() != "readme.md" {
+        for file in files where file.pathExtension.lowercased() == "md" && file.lastPathComponent.lowercased() != "readme.md"
+            && !recorded.contains(file.lastPathComponent) {
             let destination = templatesFolder.appendingPathComponent(file.lastPathComponent)
             if FileManager.default.fileExists(atPath: destination.path) {
-                // Best effort: an unreadable file (being synced, another encoding) stays as it is.
+                // Once per file. Best effort: an unreadable file (being synced, another encoding) stays as it is.
                 try? addFrontMatter(from: file, to: destination)
-            } else if !installed.contains(file.lastPathComponent) {
+            } else {
                 try FileManager.default.copyItem(at: file, to: destination)
             }
             installed.insert(file.lastPathComponent)
         }
-        try installed.sorted().joined(separator: "\n").write(to: installedTemplatesRecord, atomically: true, encoding: .utf8)
+        if installed != recorded {
+            try installed.sorted().joined(separator: "\n").write(to: installedTemplatesRecord, atomically: true, encoding: .utf8)
+        }
     }
 
     private func addFrontMatter(from bundled: URL, to destination: URL) throws {

@@ -94,7 +94,7 @@ import Testing
         let templates = [
             ReplyTemplate(id: "a", shortcut: TemplateShortcut("cmd+shift+1"), prompt: ""),
             ReplyTemplate(id: "b", shortcut: TemplateShortcut("cmd+shift+1"), prompt: ""),
-            ReplyTemplate(id: "c", shortcut: TemplateShortcut("cmd+shift+r"), prompt: ""),
+            ReplyTemplate(id: "c", shortcut: TemplateShortcut("cmd+shift+y"), prompt: ""),
             ReplyTemplate(id: "d", shortcut: TemplateShortcut("cmd+shift+2"), prompt: ""),
             ReplyTemplate(id: "e", prompt: ""),
         ]

@@ -28,7 +28,7 @@ prompt…
 
 - `titre`: the name in Settings; the file name follows it. Without front matter, the title comes from the file name (`dites-m-en-plus` → "Dites m en plus").
 - `bouton`: the button's label under the mail (the title when missing).
-- `raccourci`: modifiers among `cmd`, `shift`, `option`, `control`, then one key. The app's own shortcuts (⌘E, ⌘S, ⌘R, ⇧⌘R, ⇧⌘Y, ⇧⌘K, ⌥⌘0, ⌘1…⌘4…) and duplicates are refused.
+- `raccourci`: modifiers among `cmd`, `shift`, `option`, `control`, then one key. The app's own shortcuts (⌘E, ⌘S, ⌘R, ⇧⌘Y, ⇧⌘K, ⌥⌘0, ⌘1…⌘4…) and duplicates are refused.
 - `icone`: an SF Symbol name.
 
 ## Variables

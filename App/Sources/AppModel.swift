@@ -139,16 +139,16 @@ final class AppModel {
     }
 
     /// The reply templates of the settings folder: read on load and after each edit in Settings > Modèles.
-    private(set) var templates: [ReplyTemplate] = [] {
-        didSet { shortcutProblems = ReplyTemplate.shortcutProblems(in: templates) }
-    }
+    private(set) var templates: [ReplyTemplate] = []
     /// Templates whose shortcut clashes: the mail window does not bind it.
-    private(set) var shortcutProblems: [ReplyTemplate.ID: String] = [:]
+    var shortcutProblems: [ReplyTemplate.ID: String] { ReplyTemplate.shortcutProblems(in: templates) }
 
     /// Again from disk: also picks up files edited by hand or synced from another Mac.
     func reloadTemplates() {
         do {
-            templates = try store.templates()
+            let fresh = try store.templates()
+            // Unchanged (the usual case on activation): no redraw of the buttons.
+            if fresh != templates { templates = fresh }
         } catch {
             lastError = "Impossible de lire les modèles : \(error.localizedDescription)"
         }
