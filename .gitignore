@@ -4,6 +4,8 @@ DerivedData/
 *.xcuserstate
 build/
 .build/
+# Claude Code worktrees (one checkout per session)
+.claude/worktrees/
 # Personal data: never in the repository
 perso/
 *.local.*
