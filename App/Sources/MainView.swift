@@ -466,17 +466,7 @@ struct MessageDetailView: View {
         } message: {
             Text("La réponse proposée sous le mail, et tes modifications, seront perdues.")
         }
-        // The "Mail" menu (MailCommands) acts on the mail in front, with every shortcut.
-        // Nil while a sheet or a confirmation is up: the menu's shortcuts must not act behind it.
-        .focusedSceneValue(\.mailActions, sheetOpen ? nil : MailActions(
-            markDone: markDone,
-            reply: reply(with:),
-            summarize: summarize,
-            remind: addReminder,
-            chooseReminderDate: { choosingReminderDate = true },
-            launchClaudeCode: message.gitHubRepository == nil ? nil : launchClaudeCode,
-            openInBrowser: message.primaryLink.map { link in { NSWorkspace.shared.open(link) } }
-        ))
+        .focusedSceneValue(\.mailActions, mailActions)
         .safeAreaInset(edge: .bottom) {
             if let status {
                 Label(status, systemImage: "info.circle")
@@ -494,8 +484,27 @@ struct MessageDetailView: View {
         .translationTask(download) { session in
             await translations.translate(message, with: session)
         }
-        // Four items; everything else is in "…" and in the "Mail" menu, with the shortcuts.
-        .toolbar {
+        .toolbar { toolbarContent }
+    }
+
+    /// For the "Mail" menu (MailCommands), which acts on the mail in front with every shortcut.
+    /// Nil while a sheet or a confirmation is up: the menu's shortcuts must not act behind it.
+    private var mailActions: MailActions? {
+        guard !sheetOpen else { return nil }
+        let link = message.primaryLink
+        return MailActions(
+            markDone: markDone,
+            reply: reply(with:),
+            summarize: summarize,
+            remind: addReminder,
+            chooseReminderDate: { choosingReminderDate = true },
+            launchClaudeCode: message.gitHubRepository == nil ? nil : launchClaudeCode,
+            openInBrowser: link.map { url in { NSWorkspace.shared.open(url) } }
+        )
+    }
+
+    /// Four items; everything else is in "…" and in the "Mail" menu, with the shortcuts.
+    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
             ToolbarItem {
                 Button("Traité", systemImage: "checkmark") { markDone() }
                     .help("Traité (⌘E) : archive le mail, il sort de la liste")
@@ -538,7 +547,6 @@ struct MessageDetailView: View {
                 }
                 .help("Résumer, Claude Code, navigateur")
             }
-        }
     }
 
     private var sheetOpen: Bool { windowSheetOpen || asking != nil || replacing != nil || choosingReminderDate }
