@@ -100,3 +100,47 @@ jobs:
         run: echo "$NEEDS" | jq --exit-status 'all(.[]; .result == "success")'
         env:
           NEEDS: ${{ toJSON(needs) }}
+
+  # Releases go out by themselves: once the release PR (release-please) is green, merge it and publish.
+  # A merge with GITHUB_TOKEN starts no workflow, so the Release workflow is started explicitly on main
+  # (workflow_dispatch is the one event GITHUB_TOKEN may trigger); there it creates the tag and the release.
+  release:
+    name: Merge the release PR and publish
+    needs: passed
+    if: ${{ github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'release-please--') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Merge and start the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          HEAD: ${{ github.sha }}
+        run: |
+          pr=$(gh pr view "$BRANCH" --repo "$GITHUB_REPOSITORY" --json number,state,author,labels,body)
+          # Only release-please's own open PR, labelled "autorelease: pending".
+          if ! echo "$pr" | jq -e '.state == "OPEN" and .author.login == "app/github-actions"
+               and any(.labels[]; .name == "autorelease: pending")' > /dev/null; then
+            echo "Not an open release-please PR: nothing to do."; exit 0
+          fi
+          # Only versions with something for users (features, fixes): docs or chores wait for the next one.
+          if ! echo "$pr" | jq -e '.body | test("### (Features|Bug Fixes)")' > /dev/null; then
+            echo "::notice::No feature nor fix in this release: it waits (merge it by hand to publish anyway)."; exit 0
+          fi
+          # Only the commit this run checked: a newer push to the release branch gets its own CI run.
+          # A few tries: the "CI passed" check this run just reported can take a moment to count.
+          for try in 1 2 3 4 5; do
+            gh pr merge "$BRANCH" --repo "$GITHUB_REPOSITORY" --squash --match-head-commit "$HEAD" && break
+            [ "$try" = 5 ] && exit 1
+            sleep 15
+          done
+          for try in 1 2 3; do
+            gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main && exit 0
+            sleep 15
+          done
+          echo "::error::Release PR merged but the Release workflow did not start: run it on main by hand (Actions > Release)."
+          exit 1
