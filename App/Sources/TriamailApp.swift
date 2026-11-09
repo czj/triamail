@@ -19,6 +19,7 @@ struct TriamailApp: App {
             UpdateCommands()
             SidebarCommands()
             MailboxCommands()
+            MailCommands(model: model)
         }
 
         Settings {

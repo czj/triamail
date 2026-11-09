@@ -4,7 +4,8 @@ A macOS mail client for triaging email and acting on it, without leaving the lis
 
 - a native mail layout: a sidebar with the mailboxes (to triage, GitHub, invoices, for me; ⌘1…⌘4 in the "Boîte" menu, with the number of mails left to triage) and the connected accounts, the mail list (sender avatars, compact dates; hover, right-click or swipe to archive or set a reminder without opening the mail), the mail (HTML as sent, without JavaScript, remote images blocked until "Charger", links opened in the browser), and on the right the notification's page (GitHub…) or the invoice PDF (⌥⌘0 to hide it);
 - launch a Claude Code session on the linked repository;
-- draft an AI reply from a template, saved as a draft: one button (and shortcut) per template under the mail, templates edited in Réglages > Modèles;
+- draft an AI reply from a template, saved as a draft: the toolbar's "Répondre" menu and the menu bar's "Mail" menu list the templates with their shortcuts, templates edited in Réglages > Modèles;
+- a short toolbar (Traité, Répondre, Rappel, "…" for Résumer, Claude Code, the browser and Ranger) and a "Mail" menu with every action and its shortcut;
 - create a reminder (D+1, D+3, D+7 or a chosen date) in the Reminders app;
 - archive an invoice (rename, file, forward to accounting);
 - automatically translate foreign-language emails, locally;
@@ -19,7 +20,7 @@ The app's interface is in French.
 
 ## Getting started
 
-1. **Gmail**: in the Google Cloud console, create a project, enable the Gmail API, create a "Desktop app" OAuth client ID, then publish the consent screen to production. Then click "Ajouter un compte Google" (Add a Google account) in the empty mail list or in the toolbar's account menu: the first time, the app asks for the client ID and its secret (they go into the keychain), then opens Google's sign-in. Réglages > Comptes (Settings > Accounts) lists and disconnects accounts.
+1. **Gmail**: in the Google Cloud console, create a project, enable the Gmail API, create a "Desktop app" OAuth client ID, then publish the consent screen to production. Then click "Ajouter un compte Google" (Add a Google account) in the empty mail list or in the sidebar's "Comptes" section: the first time, the app asks for the client ID and its secret (they go into the keychain), then opens Google's sign-in. Réglages > Comptes (Settings > Accounts) lists and disconnects accounts.
 2. **Settings**: the settings folder (in iCloud Drive by default) holds `reglages.json` and the reply templates; it is shared between your Macs.
 3. **Archiving**: declare your local folders and your rules in Réglages > Archivage (Settings > Archiving).
 4. **AI**: macOS's local model (Apple Intelligence) or a Mistral key, in Réglages > IA (Settings > AI).

@@ -10,7 +10,7 @@ Templates shipped with Triamail. They contain no personal information: the app r
 | `loufoque.md` | Loufoque (Zany: reply to spam) | none | « Guidance » |
 | `oubliez-moi.md` | Oubliez-moi (Forget me) | ⇧⌘4 | none |
 
-Each template is a button under the mail. They are edited in Réglages > Modèles (Settings > Templates), or by hand: the files live in the `modeles/` folder of the settings folder. The bundled files are copied there on first launch and never overwritten afterwards.
+Each template is an entry of the "Répondre" menu (toolbar) and of the "Mail" menu (menu bar, with its shortcut). They are edited in Réglages > Modèles (Settings > Templates), or by hand: the files live in the `modeles/` folder of the settings folder. The bundled files are copied there on first launch and never overwritten afterwards.
 
 ## Front matter
 
@@ -27,7 +27,7 @@ prompt…
 ```
 
 - `titre`: the name in Settings; the file name follows it. Without front matter, the title comes from the file name (`dites-m-en-plus` → "Dites m en plus").
-- `bouton`: the button's label under the mail (the title when missing).
+- `bouton`: the template's label in the menus (the title when missing).
 - `raccourci`: modifiers among `cmd`, `shift`, `option`, `control`, then one key. The app's own shortcuts (⌘E, ⌘S, ⌘R, ⇧⌘Y, ⇧⌘K, ⌥⌘0, ⌘1…⌘4…) and duplicates are refused.
 - `icone`: an SF Symbol name.
 
