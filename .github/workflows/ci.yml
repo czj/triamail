@@ -80,9 +80,9 @@ jobs:
         if: ${{ github.event_name != 'push' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Triamail-debug
           path: Triamail-debug.zip
           # Already a zip (ditto keeps Sparkle's framework symlinks): no zip inside a zip.
+          # Unarchived, the artifact takes the file's name: `gh run download <run> -n Triamail-debug.zip`.
           archive: false
           overwrite: true
           retention-days: 7
