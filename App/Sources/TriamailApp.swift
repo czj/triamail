@@ -11,7 +11,7 @@ struct TriamailApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
-                .frame(minWidth: Layout.windowMin, minHeight: 560)
+                .frame(minWidth: MainWindowLayout.windowMin, minHeight: 560)
                 .environment(model)
         }
         .windowToolbarStyle(.unified)

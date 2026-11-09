@@ -21,7 +21,7 @@ struct MainView: View {
         let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
             messageList
-                .navigationSplitViewColumnWidth(min: Layout.listMin, ideal: Layout.listIdeal, max: 480)
+                .navigationSplitViewColumnWidth(min: MainWindowLayout.listMin, ideal: MainWindowLayout.listIdeal, max: MainWindowLayout.listMax)
         } detail: {
             Group {
                 if let message = selected {
@@ -33,12 +33,12 @@ struct MainView: View {
                 }
             }
             // The mail stays readable next to the side pane: without it, the pane squeezed it to one letter per line.
-            .frame(minWidth: Layout.mailMin, maxWidth: .infinity)
+            .frame(minWidth: MainWindowLayout.mailMin, maxWidth: .infinity)
             // Only the toolbar toggle changes the preference: the pane collapsing for lack of room does not.
-            .inspector(isPresented: Binding(get: { showsSidePane && !sideContents.isEmpty }, set: { _ in })) {
+            .inspector(isPresented: .constant(showsSidePane && !sideContents.isEmpty)) {
                 if let message = selected {
                     SidePane(message: message, contents: sideContents, settings: model.settings) { markDone(message) }
-                        .inspectorColumnWidth(min: Layout.sidePaneMin, ideal: 440, max: 720)
+                        .inspectorColumnWidth(min: MainWindowLayout.sidePaneMin, ideal: 440, max: 720)
                 }
             }
         }
@@ -147,10 +147,11 @@ struct MainView: View {
 }
 
 /// Column widths of the main window; the window's minimum is their sum.
-enum Layout {
+enum MainWindowLayout {
     static let listMin: CGFloat = 280
     /// The list opens at this width: the window's minimum leaves the mail and side pane their own minimums.
     static let listIdeal: CGFloat = 300
+    static let listMax: CGFloat = 480
     static let mailMin: CGFloat = 360
     static let sidePaneMin: CGFloat = 320
     /// The list at its opening width, the mail and the side pane at their minimums, and the dividers.
