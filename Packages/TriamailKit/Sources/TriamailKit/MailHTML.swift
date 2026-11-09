@@ -32,6 +32,34 @@ public enum MailHTML {
         return "<!doctype html><html><head>\(head)</head><body>\(html)</body></html>"
     }
 
+    /// `cid:logo@exemple` → `data:image/png;base64,…` for each image found, so the mail's own images show
+    /// without any load. Unknown IDs stay as they are.
+    public static func resolvingInlineImages(in html: String, images: [String: (mimeType: String, data: Data)]) -> String {
+        guard !images.isEmpty else { return html }
+        let lowercased = Dictionary(images.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { first, _ in first })
+        return html.replacing(/cid:([^"'\s)>]+)/.ignoresCase()) { match in
+            let id = String(match.1).removingPercentEncoding ?? String(match.1)
+            guard let image = lowercased[id.lowercased()] else { return String(match.0) }
+            return "data:\(image.mimeType);base64,\(image.data.base64EncodedString())"
+        }
+    }
+
+    /// The HTML with its inline images (`cid:`) embedded, fetched through `source` when Gmail only gave their ID.
+    /// Nil when the mail has no HTML or refers to no inline image: show `message.html` as it is.
+    /// Runs off the caller's actor; an image that cannot be fetched stays a `cid:` link.
+    public static func withInlineImages(_ message: MailMessage, source: any MailSource) async -> String? {
+        guard let html = message.html, !message.inlineParts.isEmpty, html.range(of: "cid:", options: .caseInsensitive) != nil else { return nil }
+        var images: [String: (mimeType: String, data: Data)] = [:]
+        for part in message.inlineParts {
+            if let data = part.data {
+                images[part.contentID] = (part.mimeType, data)
+            } else if let attachment = part.asAttachment, let data = try? await source.attachment(attachment, of: message) {
+                images[part.contentID] = (part.mimeType, data)
+            }
+        }
+        return resolvingInlineImages(in: html, images: images)
+    }
+
     /// Whether the mail would load something from the web (images, stylesheets, fonts): trackers often hide
     /// there, so the view offers "Charger". Links (`<a href>`) do not count: they load nothing.
     public static func hasRemoteContent(_ html: String) -> Bool {
