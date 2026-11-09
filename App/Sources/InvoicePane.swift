@@ -132,10 +132,14 @@ struct PDFPreview: NSViewRepresentable {
 @MainActor
 enum HTMLToPDF {
     static func render(_ html: String) async throws -> Data {
-        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 1100))
+        // As on screen, without JavaScript; remote content allowed (invoices load their logo from the web).
+        let configuration = WKWebViewConfiguration()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+        configuration.websiteDataStore = .nonPersistent()
+        let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 800, height: 1100), configuration: configuration)
         let loader = Loader()
         view.navigationDelegate = loader
-        view.loadHTMLString(html, baseURL: nil)
+        view.loadHTMLString(MailHTML.document(for: html, allowingRemoteContent: true), baseURL: nil)
         try await loader.finished()
         return try await view.pdf(configuration: WKPDFConfiguration())
     }

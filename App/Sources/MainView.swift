@@ -423,6 +423,8 @@ struct MessageDetailView: View {
     @State private var showsOriginal = false
     /// The mail whose remote images the user chose to load (this view is reused from mail to mail).
     @State private var remoteContentAllowedFor: MailMessage.ID?
+    /// Scanned once per mail (newsletters can be hundreds of KB), not on every render.
+    @State private var hasRemoteContent = false
     @State private var download: TranslationSession.Configuration?
 
     var body: some View {
@@ -446,6 +448,7 @@ struct MessageDetailView: View {
                     }
             }
         }
+        .task(id: message.id) { hasRemoteContent = message.html.map(MailHTML.hasRemoteContent) ?? false }
         .translationTask(download) { session in
             await translations.translate(message, with: session)
         }
@@ -533,10 +536,7 @@ struct MessageDetailView: View {
                         Label("Traduit sur ce Mac, depuis \(Locale.current.localizedString(forLanguageCode: translations.language(of: message)?.languageCode?.identifier ?? "") ?? "une autre langue")", systemImage: "translate")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Text(text)
-                            .lineSpacing(3)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: 680, alignment: .leading)
+                        ReadableText(text: text)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
@@ -567,7 +567,7 @@ struct MessageDetailView: View {
             Divider()
             if let html = message.html, !html.isEmpty {
                 let allowsRemote = remoteContentAllowedFor == message.id
-                if !allowsRemote && MailHTML.hasRemoteContent(html) {
+                if !allowsRemote && hasRemoteContent {
                     HStack {
                         Label("Images et contenu distant bloqués", systemImage: "eye.slash")
                             .foregroundStyle(.secondary)
@@ -584,10 +584,7 @@ struct MessageDetailView: View {
                     .id(message.id)
             } else {
                 ScrollView {
-                    Text(message.plainText)
-                        .lineSpacing(3)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: 680, alignment: .leading)
+                    ReadableText(text: message.plainText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
                 }

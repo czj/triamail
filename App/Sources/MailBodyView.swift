@@ -45,6 +45,18 @@ struct HTMLMailBody: NSViewRepresentable {
     }
 }
 
+/// A plain-text body (or its translation), at a comfortable line length.
+struct ReadableText: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .lineSpacing(3)
+            .textSelection(.enabled)
+            .frame(maxWidth: 680, alignment: .leading)
+    }
+}
+
 /// Above the body: the subject in large type, then who, to whom and when.
 struct MailHeader: View {
     let message: MailMessage
