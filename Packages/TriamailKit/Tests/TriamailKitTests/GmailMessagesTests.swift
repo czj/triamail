@@ -45,6 +45,43 @@ import Testing
     }
     """
 
+    static let relatedJSON = """
+    {
+      "id": "m3", "threadId": "t3", "labelIds": ["INBOX"], "internalDate": "1772874000000",
+      "payload": {
+        "mimeType": "multipart/mixed",
+        "headers": [
+          { "name": "From", "value": "Boutique Exemple <commandes@exemple.com>" },
+          { "name": "To", "value": "jeanne@exemple.com" },
+          { "name": "Subject", "value": "Votre commande" }
+        ],
+        "parts": [
+          { "mimeType": "multipart/related", "parts": [
+            { "mimeType": "text/html", "body": { "data": "\(b64(#"<img src="cid:logo@exemple"><p>Merci</p>"#))" } },
+            { "mimeType": "image/png", "filename": "logo.png",
+              "headers": [ { "name": "Content-ID", "value": "<logo@exemple>" }, { "name": "Content-Disposition", "value": "inline; filename=logo.png" } ],
+              "body": { "attachmentId": "img1", "size": 900 } },
+            { "mimeType": "image/gif",
+              "headers": [ { "name": "Content-ID", "value": "<pixel@exemple>" } ],
+              "body": { "data": "\(b64("GIF89a"))", "size": 6 } }
+          ] },
+          { "mimeType": "image/jpeg", "filename": "photo.jpg",
+            "headers": [ { "name": "Content-ID", "value": "<photo@exemple>" }, { "name": "Content-Disposition", "value": "attachment; filename=photo.jpg" } ],
+            "body": { "attachmentId": "att2", "size": 50000 } }
+        ]
+      }
+    }
+    """
+
+    @Test func inlineImagesAreNotAttachments() throws {
+        let message = try decode(Self.relatedJSON)
+        #expect(message.inlineParts.map(\.contentID) == ["logo@exemple", "pixel@exemple"])
+        #expect(message.inlineParts[0].attachmentID == "img1")
+        #expect(message.inlineParts[1].data == Data("GIF89a".utf8))
+        // An image sent as an attachment stays one, even with a Content-ID.
+        #expect(message.attachments.map(\.fileName) == ["photo.jpg"])
+    }
+
     func decode(_ json: String, account: String = "jeanne@exemple.com") throws -> MailMessage {
         try JSONDecoder().decode(GmailMessageResource.self, from: Data(json.utf8)).message(account: account)
     }

@@ -28,6 +28,31 @@ import Testing
         #expect(MailHTML.document(for: "<p>x</p>", allowingRemoteContent: false).contains("Content-Security-Policy"))
     }
 
+    @Test func embedsInlineImages() {
+        let png = Data([0x89, 0x50, 0x4E, 0x47])
+        let html = #"<img src="cid:Logo@exemple"><img src='cid:inconnu@exemple'><div style="background:url(cid:logo@exemple)">"#
+        let resolved = MailHTML.resolvingInlineImages(in: html, images: ["logo@exemple": ("image/png", png)])
+        #expect(resolved.contains(#"<img src="data:image/png;base64,iVBORw==">"#))
+        #expect(resolved.contains("cid:inconnu@exemple"))
+        #expect(resolved.contains("url(data:image/png;base64,iVBORw==)"))
+        #expect(MailHTML.resolvingInlineImages(in: html, images: [:]) == html)
+    }
+
+    @Test func fetchesInlineImagesThroughTheSource() async throws {
+        var message = try #require(MailMessage.samples.first { $0.html != nil })
+        message.html = #"<p>Logo : <img src="cid:logo@atelier"> et <img src="cid:photo@atelier"></p>"#
+        message.inlineParts = [
+            .init(contentID: "logo@atelier", mimeType: "image/svg+xml", data: Data("<svg/>".utf8)),
+            .init(contentID: "photo@atelier", mimeType: "application/pdf", attachmentID: "p1"),
+        ]
+        let html = try #require(await MailHTML.withInlineImages(message, source: SampleMailSource()))
+        #expect(html.contains("data:image/svg+xml;base64,PHN2Zy8+"))
+        #expect(html.contains("data:application/pdf;base64,"))
+        #expect(!html.contains("cid:"))
+        message.inlineParts = []
+        #expect(await MailHTML.withInlineImages(message, source: SampleMailSource()) == nil)
+    }
+
     @Test func detectsRemoteContent() {
         #expect(MailHTML.hasRemoteContent(#"<img src="https://exemple.com/pixel.gif">"#))
         #expect(MailHTML.hasRemoteContent(#"<img SRC='//exemple.com/a.png'>"#))

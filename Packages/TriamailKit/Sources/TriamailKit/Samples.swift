@@ -29,7 +29,7 @@ extension MailMessage {
                         cc: "", subject: subject, date: now.addingTimeInterval(-minutes * 60), snippet: snippet, listID: listID,
                         labelIDs: unread ? ["UNREAD", "INBOX"] : ["INBOX"], plainText: text, html: html, attachments: attachments)
         }
-        return [
+        var samples = [
             mail("demo-1", from: "Paul Exemple <paul@exemple.com>", subject: "Devis pour le site de l'association", minutes: 12,
                  snippet: "Bonjour Jeanne, pourriez-vous m'envoyer un devis pour la refonte du site avant vendredi ?",
                  text: "Bonjour Jeanne,\n\nPourriez-vous m'envoyer un devis pour la refonte du site avant vendredi ? Nous aimerions le présenter au bureau lundi.\n\nMerci d'avance,\nPaul", unread: true),
@@ -58,6 +58,7 @@ extension MailMessage {
                  unread: true,
                  html: """
                  <div style="max-width:560px;margin:auto;font-family:-apple-system,sans-serif">
+                 <img src="cid:logo@atelier.exemple.com" alt="Atelier Exemple" width="48" height="48">
                  <img src="https://exemple.com/bandeau.png" alt="Atelier Exemple" width="560" height="120" style="display:block;background:#e8eefc">
                  <h1 style="color:#2a4bd7;font-size:22px">Votre place est réservée</h1>
                  <p>Bonjour Jeanne,</p>
@@ -72,5 +73,9 @@ extension MailMessage {
                  </div>
                  """),
         ]
+        // demo-7's logo travels in the mail itself (cid:), as in many invoices and newsletters.
+        let logo = #"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><circle cx="24" cy="24" r="22" fill="#2a4bd7"/><text x="24" y="31" font-size="20" font-family="sans-serif" fill="#fff" text-anchor="middle">AE</text></svg>"#
+        samples[samples.count - 1].inlineParts = [.init(contentID: "logo@atelier.exemple.com", mimeType: "image/svg+xml", data: Data(logo.utf8))]
+        return samples
     }
 }
