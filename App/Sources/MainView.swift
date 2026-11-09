@@ -37,12 +37,21 @@ struct MainView: View {
         } content: {
             messageList
                 .navigationSplitViewColumnWidth(min: MainWindowLayout.listMin, ideal: MainWindowLayout.listIdeal, max: MainWindowLayout.listMax)
+                // Above the list it refreshes.
+                .toolbar {
+                    ToolbarItem {
+                        Button("Actualiser", systemImage: "arrow.clockwise") {
+                            Task { await inbox.refresh(accounts: model.accounts) }
+                        }
+                        .keyboardShortcut("r")
+                        .disabled(inbox.loading || !hasInbox)
+                    }
+                }
         } detail: {
             Group {
                 if let message = selected {
-                    MessageDetailView(message: message, translations: translations, replies: replies, summaries: summaries, settings: model.settings) {
-                        markDone(message)
-                    }
+                    MessageDetailView(message: message, translations: translations, replies: replies, summaries: summaries,
+                                      settings: model.settings, markDone: { markDone(message) }, windowSheetOpen: tidying)
                 } else {
                     ContentUnavailableView("Aucun mail sélectionné", systemImage: "envelope.open")
                 }
@@ -67,16 +76,10 @@ struct MainView: View {
         .focusedSceneValue(\.mailbox, $mailbox)
         .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
         .toolbar {
+            // A window action, with or without a mail.
             ToolbarItem(placement: .navigation) {
                 Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
                     .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
-            }
-            ToolbarItem {
-                Button("Actualiser", systemImage: "arrow.clockwise") {
-                    Task { await inbox.refresh(accounts: model.accounts) }
-                }
-                .keyboardShortcut("r")
-                .disabled(inbox.loading || !hasInbox)
             }
             ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: $showsSidePane) {
@@ -416,6 +419,13 @@ struct MessageDetailView: View {
     let summaries: SummaryModel
     let settings: SharedSettings
     let markDone: () -> Void
+    /// A sheet of the main window (Ranger) is up: the "Mail" menu stays off.
+    let windowSheetOpen: Bool
+    @Environment(AppModel.self) private var model
+    /// A template with fields: its form is open.
+    @State private var asking: ReplyTemplate?
+    /// A template chosen while a reply is already there: confirm before replacing it.
+    @State private var replacing: ReplyTemplate?
     @State private var status: String?
     @State private var choosingReminderDate = false
     @State private var reminderDate = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
@@ -433,8 +443,30 @@ struct MessageDetailView: View {
         }
         .id(message.id)
         .safeAreaInset(edge: .top) { SummaryBanner(message: message, summaries: summaries) }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if isTranslated {
+                Picker("Affichage", selection: $showsOriginal) {
+                    Text("Traduction").tag(false)
+                    Text("Original").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .padding(6)
+                .frame(maxWidth: .infinity)
+                .background(.bar)
+            }
+        }
         .safeAreaInset(edge: .bottom) { ReplyBanner(message: message, replies: replies) }
-        .safeAreaInset(edge: .bottom, spacing: 0) { TemplateBar(message: message, replies: replies) }
+        .sheet(item: $asking) { ReplySheet(message: message, template: $0, replies: replies) }
+        .confirmationDialog("Remplacer la réponse en cours ?", isPresented: Binding(get: { replacing != nil }, set: { if !$0 { replacing = nil } })) {
+            Button("Rédiger « \(replacing?.label ?? "") »", role: .destructive) {
+                if let template = replacing { start(template) }
+            }
+        } message: {
+            Text("La réponse proposée sous le mail, et tes modifications, seront perdues.")
+        }
+        .focusedSceneValue(\.mailActions, mailActions)
         .safeAreaInset(edge: .bottom) {
             if let status {
                 Label(status, systemImage: "info.circle")
@@ -452,70 +484,106 @@ struct MessageDetailView: View {
         .translationTask(download) { session in
             await translations.translate(message, with: session)
         }
-        .toolbar {
-            if isTranslated {
-                ToolbarItem {
-                    Picker("Affichage", selection: $showsOriginal) {
-                        Text("Traduction").tag(false)
-                        Text("Original").tag(true)
+        .toolbar { toolbarContent }
+    }
+
+    /// For the "Mail" menu (MailCommands), which acts on the mail in front with every shortcut.
+    /// Nil while a sheet or a confirmation is up: the menu's shortcuts must not act behind it.
+    private var mailActions: MailActions? {
+        guard !sheetOpen else { return nil }
+        var actions = MailActions(
+            markDone: markDone,
+            reply: { reply(with: $0) },
+            summarize: { summarize() },
+            remind: { addReminder($0) },
+            chooseReminderDate: { choosingReminderDate = true }
+        )
+        if message.gitHubRepository != nil {
+            actions.launchClaudeCode = { launchClaudeCode() }
+        }
+        if let link = message.primaryLink {
+            actions.openInBrowser = { _ = NSWorkspace.shared.open(link) }
+        }
+        return actions
+    }
+
+    /// Four items; everything else is in "…" and in the "Mail" menu, with the shortcuts.
+    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
+        ToolbarItem {
+            Button("Traité", systemImage: "checkmark") { markDone() }
+                .help("Traité (⌘E) : archive le mail, il sort de la liste")
+        }
+        ToolbarItem {
+            Menu("Répondre", systemImage: "arrowshape.turn.up.left") {
+                TemplateMenuItems(model: model, action: reply(with:))
+            }
+            .help("Rédiger une réponse avec un modèle (raccourcis dans le menu Mail)")
+        }
+        ToolbarItem {
+            Menu("Rappel", systemImage: "bell") {
+                ReminderPresetItems(action: addReminder)
+                Divider()
+                Button("Choisir une date…") { choosingReminderDate = true }
+            }
+            .help("Créer un rappel dans Rappels")
+            .popover(isPresented: $choosingReminderDate) {
+                VStack {
+                    DatePicker("Rappel le", selection: $reminderDate, in: Date.now..., displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                    Button("Créer le rappel") {
+                        choosingReminderDate = false
+                        addReminder(.on(reminderDate))
                     }
-                    .pickerStyle(.segmented)
+                    .keyboardShortcut(.defaultAction)
+                }
+                .padding()
+            }
+        }
+        ToolbarItem {
+            Menu("Plus", systemImage: "ellipsis.circle") {
+                Button("Résumer", systemImage: "text.line.first.and.arrowtriangle.forward", action: summarize)
+                if message.gitHubRepository != nil {
+                    Button("Ouvrir Claude Code", systemImage: "terminal", action: launchClaudeCode)
+                }
+                if let link = message.primaryLink {
+                    Link(destination: link) { Label("Ouvrir dans le navigateur (\(link.host() ?? "lien"))", systemImage: "safari") }
                 }
             }
-            if let link = message.primaryLink {
-                ToolbarItem {
-                    Link(destination: link) { Label("Ouvrir dans le navigateur", systemImage: "safari") }
-                        .help(link.absoluteString)
-                }
+            .help("Résumer, Claude Code, navigateur")
+        }
+    }
+
+    private var sheetOpen: Bool { windowSheetOpen || asking != nil || replacing != nil || choosingReminderDate }
+
+    private func summarize() {
+        summaries.summarize(message, settings: settings)
+    }
+
+    private func launchClaudeCode() {
+        Task {
+            do {
+                try await ClaudeCodeLauncher.launch(message, settings: settings)
+                status = "Claude Code lancé dans \(message.gitHubRepository ?? "")"
+            } catch {
+                status = error.localizedDescription
             }
-            if let repository = message.gitHubRepository {
-                ToolbarItem {
-                    Button("Claude Code", systemImage: "terminal") {
-                        Task {
-                            do {
-                                try await ClaudeCodeLauncher.launch(message, settings: settings)
-                                status = "Claude Code lancé dans \(repository)"
-                            } catch {
-                                status = error.localizedDescription
-                            }
-                        }
-                    }
-                    .keyboardShortcut("k", modifiers: [.command, .shift])
-                    .help("Ouvrir Claude Code sur le dépôt, avec la notification")
-                }
-            }
-            ToolbarItem {
-                Button("Résumer", systemImage: "text.line.first.and.arrowtriangle.forward") {
-                    summaries.summarize(message, settings: settings)
-                }
-                .keyboardShortcut("y", modifiers: [.command, .shift])
-                .help("Résumer le mail ou tout le fil")
-            }
-            ToolbarItem {
-                Menu("Rappel", systemImage: "bell") {
-                    ReminderPresetItems(action: addReminder)
-                    Divider()
-                    Button("Choisir une date…") { choosingReminderDate = true }
-                }
-                .help("Créer un rappel dans Rappels")
-                .popover(isPresented: $choosingReminderDate) {
-                    VStack {
-                        DatePicker("Rappel le", selection: $reminderDate, in: Date.now..., displayedComponents: .date)
-                            .datePickerStyle(.graphical)
-                        Button("Créer le rappel") {
-                            choosingReminderDate = false
-                            addReminder(.on(reminderDate))
-                        }
-                        .keyboardShortcut(.defaultAction)
-                    }
-                    .padding()
-                }
-            }
-            ToolbarItem {
-                Button("Traité", systemImage: "checkmark") { markDone() }
-                    .keyboardShortcut("e")
-                    .help("Archive le mail dans Gmail : il sort de la liste")
-            }
+        }
+    }
+
+    /// A template without fields starts drafting at once; the others ask for their fields first.
+    /// Replacing a reply already proposed asks first.
+    private func reply(with template: ReplyTemplate) {
+        switch replies.state(of: message) {
+        case .writing, .ready: replacing = template
+        case .failed, .saved, nil: start(template)
+        }
+    }
+
+    private func start(_ template: ReplyTemplate) {
+        if template.arguments.isEmpty {
+            replies.write(message, template: template, arguments: [:], settings: settings)
+        } else {
+            asking = template
         }
     }
 
