@@ -45,7 +45,7 @@ After that, the app updates itself (Triamail > Rechercher les mises à jour…, 
 Everything starts from the commit messages (Conventional Commits):
 
 1. on every merge to `main`, release-please keeps a "chore(main): release x.y.z" PR up to date with the changelog. Its CI is started by the `Release` workflow (a PR pushed by a workflow starts no workflow of its own); if its "CI passed" check is missing, run `gh workflow run ci.yml --ref release-please--branches--main--components--Triamail`;
-2. merging that PR creates the tag and the GitHub release; the `Release` workflow then builds the app on macOS and attaches `Triamail.dmg`, `Triamail.zip` and the `appcast.xml` update feed.
+2. once that PR's CI is green, CI merges it and starts the `Release` workflow on `main`, which creates the tag and the GitHub release, builds the app on macOS and attaches `Triamail.dmg`, `Triamail.zip` and the `appcast.xml` update feed. Every merge to `main` with a `feat` or `fix` commit is therefore published within minutes.
 
 To try the packaging without publishing: Actions > Release > Run workflow (on any branch); the DMG is attached to the run. Locally: `scripts/package.sh 0.1.0`.
 

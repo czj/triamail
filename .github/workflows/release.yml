@@ -3,7 +3,8 @@ name: Release
 on:
   push:
     branches: [main]
-  # Manual run (on any branch): builds the app and attaches it to the run, without publishing anything.
+  # Manual run on another branch: builds the app and attaches it to the run, without publishing anything.
+  # On main (CI starts it after merging the release PR): publishes the release, as a push would.
   workflow_dispatch:
 
 permissions:
@@ -17,7 +18,7 @@ concurrency:
 
 jobs:
   release-please:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

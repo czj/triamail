@@ -100,3 +100,27 @@ jobs:
         run: echo "$NEEDS" | jq --exit-status 'all(.[]; .result == "success")'
         env:
           NEEDS: ${{ toJSON(needs) }}
+
+  # Releases go out by themselves: once the release PR (release-please) is green, merge it and publish.
+  # A merge with GITHUB_TOKEN starts no workflow, so the Release workflow is started explicitly on main
+  # (workflow_dispatch is the one event GITHUB_TOKEN may trigger); there it creates the tag and the release.
+  release:
+    name: Merge the release PR and publish
+    needs: passed
+    if: ${{ github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'release-please--') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Merge and start the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          HEAD: ${{ github.sha }}
+        run: |
+          # Only the commit this run checked: a newer push to the release branch gets its own CI run.
+          gh pr merge "$BRANCH" --repo "$GITHUB_REPOSITORY" --squash --match-head-commit "$HEAD"
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main
