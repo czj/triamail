@@ -6,14 +6,10 @@ import TriamailKit
 @MainActor @Observable
 final class InboxModel {
     private(set) var messages: [MailMessage] = [] {
-        didSet {
-            unreadCounts = Dictionary(uniqueKeysWithValues: Mailbox.allCases.map { mailbox in
-                (mailbox, messages.count { $0.isUnread && mailbox.contains($0) })
-            })
-        }
+        didSet { counts = Dictionary(uniqueKeysWithValues: Mailbox.allCases.map { mailbox in (mailbox, messages.count(where: mailbox.contains)) }) }
     }
-    /// Unread mails per mailbox (the sidebar's badges), computed once per change of the list rather than on every render.
-    private(set) var unreadCounts: [Mailbox: Int] = [:]
+    /// Mails left to triage per mailbox (the sidebar's badges), computed once per change of the list rather than on every render.
+    private(set) var counts: [Mailbox: Int] = [:]
     private(set) var loading = false
     var error: String?
 

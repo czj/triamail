@@ -15,13 +15,16 @@ struct MainView: View {
     @State private var askingClient = false
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
+    @State private var windowWidth: CGFloat = .infinity
 
     var body: some View {
         let selected = selectedMessage
         let sideContents = selected?.sideContents ?? []
+        // A narrow window hides the side pane rather than squeezing the mail.
+        let roomForSidePane = windowWidth >= MainWindowLayout.widthWithSidePane
         NavigationSplitView {
-            Sidebar(mailbox: $mailbox, unreadCounts: inbox.unreadCounts)
-                .navigationSplitViewColumnWidth(min: MainWindowLayout.sidebarMin, ideal: MainWindowLayout.sidebarIdeal, max: 280)
+            Sidebar(mailbox: $mailbox, counts: inbox.counts)
+                .navigationSplitViewColumnWidth(min: MainWindowLayout.sidebarMin, ideal: MainWindowLayout.sidebarIdeal, max: MainWindowLayout.sidebarMax)
         } content: {
             messageList
                 .navigationSplitViewColumnWidth(min: MainWindowLayout.listMin, ideal: MainWindowLayout.listIdeal, max: MainWindowLayout.listMax)
@@ -38,13 +41,14 @@ struct MainView: View {
             // The mail stays readable next to the side pane: without it, the pane squeezed it to one letter per line.
             .frame(minWidth: MainWindowLayout.mailMin, maxWidth: .infinity)
             // Only the toolbar toggle changes the preference: the pane collapsing for lack of room does not.
-            .inspector(isPresented: .constant(showsSidePane && !sideContents.isEmpty)) {
+            .inspector(isPresented: .constant(showsSidePane && roomForSidePane && !sideContents.isEmpty)) {
                 if let message = selected {
                     SidePane(message: message, contents: sideContents, settings: model.settings) { markDone(message) }
                         .inspectorColumnWidth(min: MainWindowLayout.sidePaneMin, ideal: 440, max: 720)
                 }
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
         .navigationTitle(mailbox.title)
         .searchable(text: $search, placement: .toolbar, prompt: "Rechercher")
         // ⌘1…⌘4 in the "Boîte" menu (MailboxCommands) switch the mailbox of the window in front.
@@ -67,8 +71,8 @@ struct MainView: View {
                     Label("Panneau latéral", systemImage: "sidebar.right")
                 }
                 .keyboardShortcut("0", modifiers: [.command, .option])
-                .help("Afficher la page ou la pièce jointe à droite (⌥⌘0)")
-                .disabled(sideContents.isEmpty)
+                .help(roomForSidePane ? "Afficher la page ou la pièce jointe à droite (⌥⌘0)" : "Agrandis la fenêtre pour afficher la page ou la pièce jointe")
+                .disabled(sideContents.isEmpty || !roomForSidePane)
             }
         }
         .task(id: model.accounts) {
@@ -145,24 +149,27 @@ struct MainView: View {
     }
 }
 
-/// Column widths of the main window; the window's minimum is their sum.
+/// Column widths of the main window.
 enum MainWindowLayout {
     static let sidebarMin: CGFloat = 170
     static let sidebarIdeal: CGFloat = 190
+    static let sidebarMax: CGFloat = 280
     static let listMin: CGFloat = 260
-    /// The list opens at this width: the window's minimum leaves the mail and side pane their own minimums.
+    /// The list opens at this width.
     static let listIdeal: CGFloat = 290
     static let listMax: CGFloat = 480
     static let mailMin: CGFloat = 360
     static let sidePaneMin: CGFloat = 300
-    /// Sidebar and list at their opening widths, the mail and the side pane at their minimums, and the dividers.
-    static let windowMin = sidebarIdeal + listIdeal + mailMin + sidePaneMin + 3
+    /// Sidebar, list and mail, without the side pane (which hides in a narrower window), and the dividers.
+    static let windowMin = sidebarIdeal + listIdeal + mailMin + 2
+    /// Below this, the side pane would squeeze the mail: it stays hidden.
+    static let widthWithSidePane = windowMin + sidePaneMin + 1
 }
 
-/// The mailboxes with their unread counts, then the connected accounts.
+/// The mailboxes with the mails left to triage, then the connected accounts.
 private struct Sidebar: View {
     @Binding var mailbox: Mailbox
-    let unreadCounts: [Mailbox: Int]
+    let counts: [Mailbox: Int]
     @Environment(AppModel.self) private var model
     @State private var askingClient = false
 
@@ -172,20 +179,26 @@ private struct Sidebar: View {
                 ForEach(Mailbox.allCases) { box in
                     Label(box.title, systemImage: box.symbol)
                         // A zero badge is hidden.
-                        .badge(unreadCounts[box, default: 0])
+                        .badge(counts[box, default: 0])
                         .tag(box)
                 }
             }
-            Section("Comptes") {
-                ForEach(model.accounts) { account in
-                    Label(account.email, systemImage: "person.crop.circle")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .help(account.email)
+            // Without an account, the mail list's empty state already offers the button.
+            if !model.accounts.isEmpty {
+                Section("Comptes") {
+                    ForEach(model.accounts) { account in
+                        Label(account.email, systemImage: "person.crop.circle")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(account.email)
+                            .contextMenu {
+                                SettingsLink { Text("Gérer les comptes…") }
+                            }
+                    }
+                    AddGoogleAccountButton(askingClient: $askingClient)
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
                 }
-                AddGoogleAccountButton(askingClient: $askingClient)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(.secondary)
             }
         }
         .listStyle(.sidebar)
