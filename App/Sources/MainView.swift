@@ -581,6 +581,7 @@ struct MessageDetailView: View {
                     .background(.bar)
                 }
                 HTMLMailBody(html: html, allowsRemoteContent: allowsRemote)
+                    .id(message.id)
             } else {
                 ScrollView {
                     Text(message.plainText)

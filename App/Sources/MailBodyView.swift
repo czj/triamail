@@ -3,8 +3,9 @@ import SwiftUI
 import TriamailKit
 import WebKit
 
-/// The mail's HTML body: no JavaScript, remote content blocked until allowed for this mail,
-/// links opened in the default browser, never inside the app.
+/// The mail's HTML body: no JavaScript, remote content blocked until allowed for this mail (the document's own
+/// Content-Security-Policy, see `MailHTML`), links opened in the default browser, never inside the app.
+/// One view per mail: the caller gives it `.id(message.id)`.
 struct HTMLMailBody: NSViewRepresentable {
     let html: String
     let allowsRemoteContent: Bool
@@ -22,39 +23,21 @@ struct HTMLMailBody: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        let key = "\(allowsRemoteContent)\(html.hashValue)"
-        guard context.coordinator.loaded != key else { return }
-        context.coordinator.loaded = key
-        let document = MailHTML.document(for: html)
-        let allows = allowsRemoteContent
-        Task { @MainActor in
-            let controller = view.configuration.userContentController
-            controller.removeAllContentRuleLists()
-            if !allows, let rules = await Self.blockingRules() {
-                controller.add(rules)
-            }
-            view.loadHTMLString(document, baseURL: nil)
-        }
-    }
-
-    /// Compiled once per launch.
-    @MainActor private static var compiled: WKContentRuleList?
-
-    @MainActor private static func blockingRules() async -> WKContentRuleList? {
-        if let compiled { return compiled }
-        compiled = try? await WKContentRuleListStore.default()
-            .compileContentRuleList(forIdentifier: "triamail.block-remote", encodedContentRuleList: MailHTML.blockRemoteContentRules)
-        return compiled
+        // Reloads only when the remote content choice changes (the mail itself changes with the view's id).
+        guard context.coordinator.loaded != allowsRemoteContent else { return }
+        context.coordinator.loaded = allowsRemoteContent
+        view.loadHTMLString(MailHTML.document(for: html, allowingRemoteContent: allowsRemoteContent), baseURL: nil)
     }
 
     @MainActor final class Coordinator: NSObject, WKNavigationDelegate {
-        /// What is on screen, so a SwiftUI update does not reload the same mail.
-        var loaded: String?
+        var loaded: Bool?
 
         func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction) async -> WKNavigationActionPolicy {
-            // The body itself loads; a click on a link goes to the browser.
-            guard action.navigationType == .linkActivated || action.targetFrame == nil else { return .allow }
-            if let url = action.request.url, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
+            guard let url = action.request.url else { return .cancel }
+            // The mail itself (loaded as about:blank) and its in-page anchors stay here.
+            if url.scheme == "about" { return .allow }
+            // A click on a link goes to the browser; anything else (a redirect, a form) goes nowhere.
+            if action.navigationType == .linkActivated, ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") {
                 NSWorkspace.shared.open(url)
             }
             return .cancel
