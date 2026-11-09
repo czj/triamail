@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1](https://github.com/czj/triamail/compare/v0.3.0...v0.3.1) (2026-11-09)
+
+
+### Bug Fixes
+
+* inline images (cid:) in HTML mails ([#89](https://github.com/czj/triamail/issues/89)) ([9fc6fba](https://github.com/czj/triamail/commit/9fc6fba7e591c315404ecf3853b7245e72e5b788))
+
+
+### Documentation
+
+* project write-swift skill matching the concurrency settings ([#85](https://github.com/czj/triamail/issues/85)) ([e428885](https://github.com/czj/triamail/commit/e428885ba2fa8f7f577ef0fadb34ba4fe91b84c1))
+
 ## [0.3.0](https://github.com/czj/triamail/compare/v0.2.1...v0.3.0) (2026-11-09)
 
 
