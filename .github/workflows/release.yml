@@ -55,7 +55,7 @@ jobs:
 
   build-app:
     needs: release-please
-    if: ${{ always() && (needs.release-please.outputs.created == 'true' || (github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main')) }}
+    if: ${{ always() && (needs.release-please.outputs.created == 'true' || github.ref != 'refs/heads/main') }}
     runs-on: macos-26
     timeout-minutes: 45
     env:
