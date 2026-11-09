@@ -9,9 +9,9 @@ struct MailActions {
     var remind: (ReminderDelay) -> Void
     var chooseReminderDate: () -> Void
     /// Nil when the mail is not a GitHub notification.
-    var launchClaudeCode: (() -> Void)?
+    var launchClaudeCode: (() -> Void)? = nil
     /// Nil when the mail links nowhere.
-    var openInBrowser: (() -> Void)?
+    var openInBrowser: (() -> Void)? = nil
 }
 
 extension FocusedValues {

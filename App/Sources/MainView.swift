@@ -491,16 +491,20 @@ struct MessageDetailView: View {
     /// Nil while a sheet or a confirmation is up: the menu's shortcuts must not act behind it.
     private var mailActions: MailActions? {
         guard !sheetOpen else { return nil }
-        let link = message.primaryLink
-        return MailActions(
+        var actions = MailActions(
             markDone: markDone,
-            reply: reply(with:),
-            summarize: summarize,
-            remind: addReminder,
-            chooseReminderDate: { choosingReminderDate = true },
-            launchClaudeCode: message.gitHubRepository == nil ? nil : launchClaudeCode,
-            openInBrowser: link.map { url in { NSWorkspace.shared.open(url) } }
+            reply: { reply(with: $0) },
+            summarize: { summarize() },
+            remind: { addReminder($0) },
+            chooseReminderDate: { choosingReminderDate = true }
         )
+        if message.gitHubRepository != nil {
+            actions.launchClaudeCode = { launchClaudeCode() }
+        }
+        if let link = message.primaryLink {
+            actions.openInBrowser = { _ = NSWorkspace.shared.open(link) }
+        }
+        return actions
     }
 
     /// Four items; everything else is in "…" and in the "Mail" menu, with the shortcuts.
