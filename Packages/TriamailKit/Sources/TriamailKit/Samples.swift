@@ -24,10 +24,10 @@ extension MailMessage {
     public static var samples: [MailMessage] {
         let now = Date.now
         func mail(_ id: String, from: String, subject: String, minutes: Double, snippet: String, text: String,
-                  listID: String? = nil, unread: Bool = false, attachments: [Attachment] = []) -> MailMessage {
+                  listID: String? = nil, unread: Bool = false, html: String? = nil, attachments: [Attachment] = []) -> MailMessage {
             MailMessage(id: id, threadID: id, account: SampleMailSource.account.email, from: from, to: "Jeanne Exemple <\(SampleMailSource.account.email)>",
                         cc: "", subject: subject, date: now.addingTimeInterval(-minutes * 60), snippet: snippet, listID: listID,
-                        labelIDs: unread ? ["UNREAD", "INBOX"] : ["INBOX"], plainText: text, html: nil, attachments: attachments)
+                        labelIDs: unread ? ["UNREAD", "INBOX"] : ["INBOX"], plainText: text, html: html, attachments: attachments)
         }
         return [
             mail("demo-1", from: "Paul Exemple <paul@exemple.com>", subject: "Devis pour le site de l'association", minutes: 12,
@@ -51,6 +51,26 @@ extension MailMessage {
             mail("demo-6", from: "Marie Exemple <marie@exemple.org>", subject: "Re: Réunion de jeudi", minutes: 1500,
                  snippet: "Parfait pour 14 h, je réserve la salle.",
                  text: "Parfait pour 14 h, je réserve la salle.\n\nMarie"),
+            // An HTML mail with a remote image: blocked until "Charger le contenu distant".
+            mail("demo-7", from: "Atelier Exemple <atelier@exemple.com>", subject: "Votre inscription à l'atelier du 20 novembre", minutes: 45,
+                 snippet: "Bonjour Jeanne, votre place est réservée. Voici le programme de la journée.",
+                 text: "Bonjour Jeanne,\n\nVotre place est réservée. Voici le programme de la journée.",
+                 unread: true,
+                 html: """
+                 <div style="max-width:560px;margin:auto;font-family:-apple-system,sans-serif">
+                 <img src="https://exemple.com/bandeau.png" alt="Atelier Exemple" width="560" height="120" style="display:block;background:#e8eefc">
+                 <h1 style="color:#2a4bd7;font-size:22px">Votre place est réservée</h1>
+                 <p>Bonjour Jeanne,</p>
+                 <p>Merci pour votre inscription à l'atelier du <b>20 novembre</b>. Voici le programme :</p>
+                 <table style="border-collapse:collapse;width:100%">
+                 <tr><td style="padding:6px;border-bottom:1px solid #ddd">9 h 30</td><td style="padding:6px;border-bottom:1px solid #ddd">Accueil</td></tr>
+                 <tr><td style="padding:6px;border-bottom:1px solid #ddd">10 h</td><td style="padding:6px;border-bottom:1px solid #ddd">Atelier pratique</td></tr>
+                 <tr><td style="padding:6px">12 h 30</td><td style="padding:6px">Déjeuner</td></tr>
+                 </table>
+                 <p><a href="https://exemple.com/atelier" style="display:inline-block;padding:10px 16px;background:#2a4bd7;color:#fff;border-radius:6px;text-decoration:none">Voir le détail</a></p>
+                 <p style="color:#888;font-size:12px">Atelier Exemple · exemple.com</p>
+                 </div>
+                 """),
         ]
     }
 }

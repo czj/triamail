@@ -421,6 +421,8 @@ struct MessageDetailView: View {
     @State private var reminderDate = Calendar.current.date(byAdding: .day, value: 14, to: .now) ?? .now
     /// For a translated mail: the original instead of the translation.
     @State private var showsOriginal = false
+    /// The mail whose remote images the user chose to load (this view is reused from mail to mail).
+    @State private var remoteContentAllowedFor: MailMessage.ID?
     @State private var download: TranslationSession.Configuration?
 
     var body: some View {
@@ -523,18 +525,22 @@ struct MessageDetailView: View {
     @ViewBuilder private var translationBody: some View {
         switch translations.state(of: message) {
         case let .done(text):
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(message.subject).font(.title2.weight(.semibold))
-                    Label("Traduit sur ce Mac, depuis \(Locale.current.localizedString(forLanguageCode: translations.language(of: message)?.languageCode?.identifier ?? "") ?? "une autre langue")", systemImage: "translate")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Divider()
-                    Text(text)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 0) {
+                MailHeader(message: message)
+                Divider()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("Traduit sur ce Mac, depuis \(Locale.current.localizedString(forLanguageCode: translations.language(of: message)?.languageCode?.identifier ?? "") ?? "une autre langue")", systemImage: "translate")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(text)
+                            .lineSpacing(3)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: 680, alignment: .leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
                 }
-                .padding()
             }
         case .needsDownload:
             ContentUnavailableView {
@@ -556,24 +562,35 @@ struct MessageDetailView: View {
     }
 
     private var mailBody: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(message.subject)
-                    .font(.title2.weight(.semibold))
-                    .textSelection(.enabled)
-                HStack {
-                    Text(message.from)
-                    Spacer()
-                    Text(message.date, format: .dateTime.day().month().hour().minute())
+        VStack(spacing: 0) {
+            MailHeader(message: message)
+            Divider()
+            if let html = message.html, !html.isEmpty {
+                let allowsRemote = remoteContentAllowedFor == message.id
+                if !allowsRemote && MailHTML.hasRemoteContent(html) {
+                    HStack {
+                        Label("Images et contenu distant bloqués", systemImage: "eye.slash")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Charger") { remoteContentAllowedFor = message.id }
+                            .controlSize(.small)
+                    }
+                    .font(.callout)
+                    .padding(.horizontal)
+                    .padding(.vertical, 6)
+                    .background(.bar)
                 }
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                Divider()
-                Text(message.plainText)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                HTMLMailBody(html: html, allowsRemoteContent: allowsRemote)
+            } else {
+                ScrollView {
+                    Text(message.plainText)
+                        .lineSpacing(3)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: 680, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                }
             }
-            .padding()
         }
     }
 }
