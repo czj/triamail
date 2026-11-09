@@ -1,23 +1,17 @@
 import SwiftUI
 import TriamailKit
 
-/// "Ajouter un compte Google": signs in, or sets `askingClient` when no OAuth client is saved yet.
-/// The host shows `.oauthClientSheet(isPresented:)` on a view that stays on screen (a menu item would close
-/// with its menu), so the sheet belongs to that window only.
+/// "Ajouter un compte Google": signs in, or first asks for the OAuth client when none is saved yet.
+/// The sheet hangs on the button, so it belongs to its window only. Not for a menu item: its sheet would close with the menu.
 struct AddGoogleAccountButton: View {
     @Environment(AppModel.self) private var model
-    @Binding var askingClient: Bool
+    @State private var askingClient = false
 
     var body: some View {
         Button("Ajouter un compte Google…", systemImage: "plus") {
             if !model.addGoogleAccount() { askingClient = true }
         }
-    }
-}
-
-extension View {
-    func oauthClientSheet(isPresented: Binding<Bool>) -> some View {
-        sheet(isPresented: isPresented) { OAuthClientSheet() }
+        .sheet(isPresented: $askingClient) { OAuthClientSheet() }
     }
 }
 

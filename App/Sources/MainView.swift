@@ -12,16 +12,14 @@ struct MainView: View {
     @State private var selection: MailMessage.ID?
     @State private var search = ""
     @State private var tidying = false
-    @State private var askingClient = false
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
-    @State private var windowWidth: CGFloat = .infinity
+    /// Whether the mail column can hold the mail and the side pane: a narrow one hides the pane rather than squeezing the mail.
+    @State private var roomForSidePane = true
 
     var body: some View {
         let selected = selectedMessage
         let sideContents = selected?.sideContents ?? []
-        // A narrow window hides the side pane rather than squeezing the mail.
-        let roomForSidePane = windowWidth >= MainWindowLayout.widthWithSidePane
         NavigationSplitView {
             Sidebar(mailbox: $mailbox, counts: inbox.counts)
                 .navigationSplitViewColumnWidth(min: MainWindowLayout.sidebarMin, ideal: MainWindowLayout.sidebarIdeal, max: MainWindowLayout.sidebarMax)
@@ -47,8 +45,11 @@ struct MainView: View {
                         .inspectorColumnWidth(min: MainWindowLayout.sidePaneMin, ideal: 440, max: 720)
                 }
             }
+            // Measured on the column itself (sidebar and list widths included), changing only when the threshold is crossed.
+            .onGeometryChange(for: Bool.self) { $0.size.width > MainWindowLayout.mailMin + MainWindowLayout.sidePaneMin } action: {
+                roomForSidePane = $0
+            }
         }
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { windowWidth = $0 }
         .navigationTitle(mailbox.title)
         .searchable(text: $search, placement: .toolbar, prompt: "Rechercher")
         // ⌘1…⌘4 in the "Boîte" menu (MailboxCommands) switch the mailbox of the window in front.
@@ -93,9 +94,8 @@ struct MainView: View {
             } description: {
                 Text(model.signInMessage ?? "Connecte un compte Google pour voir les mails à traiter.")
             } actions: {
-                AddGoogleAccountButton(askingClient: $askingClient)
+                AddGoogleAccountButton()
                     .buttonStyle(.borderedProminent)
-                    .oauthClientSheet(isPresented: $askingClient)
             }
         } else {
             let messages = visibleMessages
@@ -162,8 +162,6 @@ enum MainWindowLayout {
     static let sidePaneMin: CGFloat = 300
     /// Sidebar, list and mail, without the side pane (which hides in a narrower window), and the dividers.
     static let windowMin = sidebarIdeal + listIdeal + mailMin + 2
-    /// Below this, the side pane would squeeze the mail: it stays hidden.
-    static let widthWithSidePane = windowMin + sidePaneMin + 1
 }
 
 /// The mailboxes with the mails left to triage, then the connected accounts.
@@ -171,7 +169,6 @@ private struct Sidebar: View {
     @Binding var mailbox: Mailbox
     let counts: [Mailbox: Int]
     @Environment(AppModel.self) private var model
-    @State private var askingClient = false
 
     var body: some View {
         List(selection: Binding(get: { mailbox }, set: { if let new = $0 { mailbox = new } })) {
@@ -195,14 +192,13 @@ private struct Sidebar: View {
                                 SettingsLink { Text("Gérer les comptes…") }
                             }
                     }
-                    AddGoogleAccountButton(askingClient: $askingClient)
+                    AddGoogleAccountButton()
                         .buttonStyle(.borderless)
                         .foregroundStyle(.secondary)
                 }
             }
         }
         .listStyle(.sidebar)
-        .oauthClientSheet(isPresented: $askingClient)
     }
 }
 
