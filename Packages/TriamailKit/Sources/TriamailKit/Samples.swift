@@ -75,7 +75,7 @@ extension MailMessage {
         ]
         // demo-7's logo travels in the mail itself (cid:), as in many invoices and newsletters.
         let logo = ##"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><circle cx="24" cy="24" r="22" fill="#2a4bd7"/><text x="24" y="31" font-size="20" font-family="sans-serif" fill="#fff" text-anchor="middle">AE</text></svg>"##
-        samples[samples.count - 1].inlineParts = [.init(contentID: "logo@atelier.exemple.com", mimeType: "image/svg+xml", data: Data(logo.utf8))]
+        if let atelier = samples.firstIndex(where: { $0.id == "demo-7" }) { samples[atelier].inlineParts = [.init(contentID: "logo@atelier.exemple.com", mimeType: "image/svg+xml", data: Data(logo.utf8))] }
         return samples
     }
 }

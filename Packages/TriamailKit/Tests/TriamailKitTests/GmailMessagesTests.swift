@@ -57,7 +57,7 @@ import Testing
         ],
         "parts": [
           { "mimeType": "multipart/related", "parts": [
-            { "mimeType": "text/html", "body": { "data": "\(b64(#"<img src="cid:logo@exemple"><p>Merci</p>"#))" } },
+            { "mimeType": "text/html", "body": { "data": "\(b64(#"<img src="cid:logo@exemple"><img src="cid:pixel@exemple"><p>Merci</p>"#))" } },
             { "mimeType": "image/png", "filename": "logo.png",
               "headers": [ { "name": "Content-ID", "value": "<logo@exemple>" }, { "name": "Content-Disposition", "value": "inline; filename=logo.png" } ],
               "body": { "attachmentId": "img1", "size": 900 } },
@@ -80,6 +80,14 @@ import Testing
         #expect(message.inlineParts[1].data == Data("GIF89a".utf8))
         // An image sent as an attachment stays one, even with a Content-ID.
         #expect(message.attachments.map(\.fileName) == ["photo.jpg"])
+    }
+
+    @Test func inlineImageTheHTMLDoesNotShowIsAnAttachment() throws {
+        // A photo sent "inline" from a phone, with a Content-ID nothing refers to.
+        let json = Self.relatedJSON.replacingOccurrences(of: Self.b64(#"<img src="cid:logo@exemple"><img src="cid:pixel@exemple"><p>Merci</p>"#), with: Self.b64("<p>Merci</p>"))
+        let message = try decode(json)
+        #expect(message.inlineParts.isEmpty)
+        #expect(Set(message.attachments.map(\.fileName)) == ["logo.png", "photo.jpg"])
     }
 
     func decode(_ json: String, account: String = "jeanne@exemple.com") throws -> MailMessage {

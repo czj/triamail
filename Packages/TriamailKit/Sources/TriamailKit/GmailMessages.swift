@@ -123,6 +123,10 @@ struct GmailMessageResource: Decodable {
         var headers: [Header]?
         var body: Body?
         var parts: [Part]?
+
+        func header(_ name: String) -> String? {
+            headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
+        }
     }
 
     var id: String
@@ -133,14 +137,15 @@ struct GmailMessageResource: Decodable {
     var payload: Part
 
     func message(account: String) -> MailMessage {
-        func header(_ name: String) -> String? {
-            payload.headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
-        }
+        func header(_ name: String) -> String? { payload.header(name) }
         var parts = CollectedParts()
         walk(payload, into: &parts)
 
         let milliseconds = Double(internalDate ?? "") ?? 0
         let htmlText = parts.html.first
+        let referenced = MailHTML.referencedContentIDs(in: htmlText ?? "")
+        let shown = parts.inline.filter { referenced.contains($0.part.contentID.lowercased()) }
+        parts.attachments += parts.inline.filter { !referenced.contains($0.part.contentID.lowercased()) }.compactMap(\.attachment)
         var message = MailMessage(
             id: id,
             threadID: threadId,
@@ -160,7 +165,7 @@ struct GmailMessageResource: Decodable {
             references: header("References"),
             replyTo: header("Reply-To")
         )
-        message.inlineParts = parts.inline
+        message.inlineParts = shown.map(\.part)
         return message
     }
 
@@ -168,20 +173,21 @@ struct GmailMessageResource: Decodable {
         var plain: [String] = []
         var html: [String] = []
         var attachments: [MailMessage.Attachment] = []
-        var inline: [MailMessage.InlinePart] = []
+        /// With the attachment it becomes when the HTML does not show it (a photo sent "inline" from a phone).
+        var inline: [(part: MailMessage.InlinePart, attachment: MailMessage.Attachment?)] = []
     }
 
     private func walk(_ part: Part, into parts: inout CollectedParts) {
-        func header(_ name: String) -> String? {
-            part.headers?.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }?.value
-        }
         let mimeType = part.mimeType ?? ""
-        let disposition = header("Content-Disposition")?.lowercased() ?? ""
-        if let contentID = header("Content-ID").map(Self.bareContentID), !contentID.isEmpty,
+        let disposition = part.header("Content-Disposition")?.lowercased() ?? ""
+        if let contentID = part.header("Content-ID").map(Self.bareContentID), !contentID.isEmpty,
            mimeType.hasPrefix("image/"), !disposition.hasPrefix("attachment") {
-            // Shown in the HTML (cid:), not offered as an attachment.
-            parts.inline.append(.init(contentID: contentID, mimeType: mimeType, attachmentID: part.body?.attachmentId,
-                                      data: part.body?.data.flatMap(Data.init(base64URLEncoded:))))
+            // Shown in the HTML (cid:) when the HTML refers to it; otherwise an attachment after all (see `message`).
+            let attachment = part.filename.flatMap { name in
+                part.body?.attachmentId.map { MailMessage.Attachment(fileName: name, mimeType: mimeType, attachmentID: $0, size: part.body?.size ?? 0) }
+            }
+            parts.inline.append((.init(contentID: contentID, mimeType: mimeType, attachmentID: part.body?.attachmentId,
+                                       data: part.body?.data.flatMap(Data.init(base64URLEncoded:))), attachment))
         } else if let filename = part.filename, !filename.isEmpty, let attachmentID = part.body?.attachmentId {
             parts.attachments.append(.init(fileName: filename, mimeType: mimeType, attachmentID: attachmentID, size: part.body?.size ?? 0))
         } else if let data = part.body?.data, let text = Data(base64URLEncoded: data).flatMap({ String(data: $0, encoding: .utf8) }) {

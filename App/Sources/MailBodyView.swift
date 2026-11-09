@@ -23,7 +23,6 @@ struct HTMLMailBody: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        // Reloads only when the remote content choice changes (the mail itself changes with the view's id).
         // Reloads when the remote content choice changes, or when the inline images arrive (the HTML grows).
         let key = "\(allowsRemoteContent)-\(html.utf8.count)"
         guard context.coordinator.loaded != key else { return }

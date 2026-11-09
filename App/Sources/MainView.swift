@@ -486,10 +486,10 @@ struct MessageDetailView: View {
         }
         .task(id: message.id) {
             hasRemoteContent = message.html.map(MailHTML.hasRemoteContent) ?? false
-            // The mail's own images (cid:), fetched off the main actor; the body shows first without them.
-            if let html = await MailHTML.withInlineImages(message, source: model.mailSource) {
-                resolvedHTML = (message.id, html)
-            }
+            // The mail's own images (cid:), fetched off the main actor. A late answer for a mail no longer on
+            // screen is dropped (the task was cancelled when the selection changed).
+            let html = await MailHTML.withInlineImages(message, source: model.mailSource)
+            if !Task.isCancelled, let html { resolvedHTML = (message.id, html) }
         }
         .translationTask(download) { session in
             await translations.translate(message, with: session)
@@ -658,8 +658,13 @@ struct MessageDetailView: View {
                     .padding(.vertical, 6)
                     .background(.bar)
                 }
-                HTMLMailBody(html: inlineResolved?.html ?? html, allowsRemoteContent: allowsRemote)
-                    .id(message.id)
+                if MailHTML.hasInlineImages(message) && inlineResolved == nil {
+                    // Shown once, with its own images: no reload (and jump to the top) when they arrive.
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    HTMLMailBody(html: inlineResolved?.html ?? html, allowsRemoteContent: allowsRemote)
+                        .id(message.id)
+                }
             } else {
                 ScrollView {
                     ReadableText(text: message.plainText)

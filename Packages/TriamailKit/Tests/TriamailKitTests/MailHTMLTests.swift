@@ -36,6 +36,10 @@ import Testing
         #expect(resolved.contains("cid:inconnu@exemple"))
         #expect(resolved.contains("url(data:image/png;base64,iVBORw==)"))
         #expect(MailHTML.resolvingInlineImages(in: html, images: [:]) == html)
+        // Only image types; a reference stops at an entity; "placid:" is not a reference.
+        #expect(MailHTML.resolvingInlineImages(in: html, images: ["logo@exemple": (#"image/png" onload="x"#, png)]) == html)
+        let quoted = MailHTML.resolvingInlineImages(in: "url(&quot;cid:logo@exemple&quot;) placid:logo@exemple", images: ["logo@exemple": ("image/png", png)])
+        #expect(quoted == "url(&quot;data:image/png;base64,iVBORw==&quot;) placid:logo@exemple")
     }
 
     @Test func fetchesInlineImagesThroughTheSource() async throws {
@@ -43,11 +47,11 @@ import Testing
         message.html = #"<p>Logo : <img src="cid:logo@atelier"> et <img src="cid:photo@atelier"></p>"#
         message.inlineParts = [
             .init(contentID: "logo@atelier", mimeType: "image/svg+xml", data: Data("<svg/>".utf8)),
-            .init(contentID: "photo@atelier", mimeType: "application/pdf", attachmentID: "p1"),
+            .init(contentID: "photo@atelier", mimeType: "image/png", attachmentID: "p1"),
         ]
         let html = try #require(await MailHTML.withInlineImages(message, source: SampleMailSource()))
         #expect(html.contains("data:image/svg+xml;base64,PHN2Zy8+"))
-        #expect(html.contains("data:application/pdf;base64,"))
+        #expect(html.contains("data:image/png;base64,"))
         #expect(!html.contains("cid:"))
         message.inlineParts = []
         #expect(await MailHTML.withInlineImages(message, source: SampleMailSource()) == nil)
