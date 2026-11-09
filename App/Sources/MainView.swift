@@ -3,7 +3,7 @@ import SwiftUI
 @preconcurrency import Translation
 import TriamailKit
 
-/// Three panes, like Mimestream or Reeder: the mails in one long list, the mail itself,
+/// A native mail client's layout: mailboxes and accounts in the sidebar, the mails, the mail itself,
 /// and on the right what the mail points to (the GitHub page, the invoice PDF).
 struct MainView: View {
     @Environment(AppModel.self) private var model
@@ -12,14 +12,18 @@ struct MainView: View {
     @State private var selection: MailMessage.ID?
     @State private var search = ""
     @State private var tidying = false
-    @State private var askingClient = false
     /// The user's choice; the pane only shows when the mail has something to show there.
     @AppStorage("showsSidePane") private var showsSidePane = true
+    /// Whether the mail column can hold the mail and the side pane: a narrow one hides the pane rather than squeezing the mail.
+    @State private var roomForSidePane = true
 
     var body: some View {
         let selected = selectedMessage
         let sideContents = selected?.sideContents ?? []
         NavigationSplitView {
+            Sidebar(mailbox: $mailbox, counts: inbox.counts)
+                .navigationSplitViewColumnWidth(min: MainWindowLayout.sidebarMin, ideal: MainWindowLayout.sidebarIdeal, max: MainWindowLayout.sidebarMax)
+        } content: {
             messageList
                 .navigationSplitViewColumnWidth(min: MainWindowLayout.listMin, ideal: MainWindowLayout.listIdeal, max: MainWindowLayout.listMax)
         } detail: {
@@ -35,23 +39,26 @@ struct MainView: View {
             // The mail stays readable next to the side pane: without it, the pane squeezed it to one letter per line.
             .frame(minWidth: MainWindowLayout.mailMin, maxWidth: .infinity)
             // Only the toolbar toggle changes the preference: the pane collapsing for lack of room does not.
-            .inspector(isPresented: .constant(showsSidePane && !sideContents.isEmpty)) {
+            .inspector(isPresented: .constant(showsSidePane && roomForSidePane && !sideContents.isEmpty)) {
                 if let message = selected {
                     SidePane(message: message, contents: sideContents, settings: model.settings) { markDone(message) }
                         .inspectorColumnWidth(min: MainWindowLayout.sidePaneMin, ideal: 440, max: 720)
                 }
             }
+            // Measured on the column itself (sidebar and list widths included), changing only when the threshold is crossed.
+            .onGeometryChange(for: Bool.self) { $0.size.width > MainWindowLayout.mailMin + MainWindowLayout.sidePaneMin } action: {
+                roomForSidePane = $0
+            }
         }
         .navigationTitle(mailbox.title)
-        .searchable(text: $search, placement: .sidebar, prompt: "Rechercher")
+        .searchable(text: $search, placement: .toolbar, prompt: "Rechercher")
+        // ⌘1…⌘4 in the "Boîte" menu (MailboxCommands) switch the mailbox of the window in front.
+        .focusedSceneValue(\.mailbox, $mailbox)
         .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
                     .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
-            }
-            ToolbarItem(placement: .navigation) {
-                AccountMenu()
             }
             ToolbarItem {
                 Button("Actualiser", systemImage: "arrow.clockwise") {
@@ -65,8 +72,8 @@ struct MainView: View {
                     Label("Panneau latéral", systemImage: "sidebar.right")
                 }
                 .keyboardShortcut("0", modifiers: [.command, .option])
-                .help("Afficher la page ou la pièce jointe à droite (⌥⌘0)")
-                .disabled(sideContents.isEmpty)
+                .help(roomForSidePane ? "Afficher la page ou la pièce jointe à droite (⌥⌘0)" : "Agrandis la fenêtre pour afficher la page ou la pièce jointe")
+                .disabled(sideContents.isEmpty || !roomForSidePane)
             }
         }
         .task(id: model.accounts) {
@@ -87,17 +94,13 @@ struct MainView: View {
             } description: {
                 Text(model.signInMessage ?? "Connecte un compte Google pour voir les mails à traiter.")
             } actions: {
-                AddGoogleAccountButton(askingClient: $askingClient)
+                AddGoogleAccountButton()
                     .buttonStyle(.borderedProminent)
-                    .oauthClientSheet(isPresented: $askingClient)
             }
         } else {
             let messages = visibleMessages
             List(messages, selection: $selection) { message in
                 MessageRow(message: message, language: translations.language(of: message))
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                MailboxFilter(selection: $mailbox, counts: inbox.counts)
             }
             .overlay {
                 if inbox.loading && messages.isEmpty {
@@ -146,42 +149,74 @@ struct MainView: View {
     }
 }
 
-/// Column widths of the main window; the window's minimum is their sum.
+/// Column widths of the main window.
 enum MainWindowLayout {
-    static let listMin: CGFloat = 280
-    /// The list opens at this width: the window's minimum leaves the mail and side pane their own minimums.
-    static let listIdeal: CGFloat = 300
+    static let sidebarMin: CGFloat = 170
+    static let sidebarIdeal: CGFloat = 190
+    static let sidebarMax: CGFloat = 280
+    static let listMin: CGFloat = 260
+    /// The list opens at this width.
+    static let listIdeal: CGFloat = 290
     static let listMax: CGFloat = 480
     static let mailMin: CGFloat = 360
-    static let sidePaneMin: CGFloat = 320
-    /// The list at its opening width, the mail and the side pane at their minimums, and the dividers.
-    static let windowMin = listIdeal + mailMin + sidePaneMin + 2
+    static let sidePaneMin: CGFloat = 300
+    /// Sidebar, list and mail, without the side pane (which hides in a narrower window), and the dividers.
+    static let windowMin = sidebarIdeal + listIdeal + mailMin + 2
 }
 
-/// The categories, as a compact filter on top of the list instead of a sidebar.
-private struct MailboxFilter: View {
-    @Binding var selection: Mailbox
+/// The mailboxes with the mails left to triage, then the connected accounts.
+private struct Sidebar: View {
+    @Binding var mailbox: Mailbox
     let counts: [Mailbox: Int]
+    @Environment(AppModel.self) private var model
 
     var body: some View {
-        Picker("Filtre", selection: $selection) {
-            ForEach(Mailbox.allCases) { mailbox in
-                (Text(mailbox.shortTitle) + Text(verbatim: " \(counts[mailbox, default: 0])").foregroundStyle(.secondary))
-                    .tag(mailbox)
+        List(selection: Binding(get: { mailbox }, set: { if let new = $0 { mailbox = new } })) {
+            Section("Boîtes") {
+                ForEach(Mailbox.allCases) { box in
+                    Label(box.title, systemImage: box.symbol)
+                        // A zero badge is hidden.
+                        .badge(counts[box, default: 0])
+                        .tag(box)
+                }
+            }
+            // Without an account, the mail list's empty state already offers the button.
+            if !model.accounts.isEmpty {
+                Section("Comptes") {
+                    ForEach(model.accounts) { account in
+                        Label(account.email, systemImage: "person.crop.circle")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(account.email)
+                            .contextMenu {
+                                SettingsLink { Text("Gérer les comptes…") }
+                            }
+                    }
+                    AddGoogleAccountButton()
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background {
-            // ⌘1…⌘4 switch the filter.
-            ForEach(Array(Mailbox.allCases.enumerated()), id: \.offset) { index, mailbox in
-                Button("") { selection = mailbox }
+        .listStyle(.sidebar)
+    }
+}
+
+extension FocusedValues {
+    /// The mailbox shown in the window in front, for the "Boîte" menu.
+    @Entry var mailbox: Binding<Mailbox>?
+}
+
+/// The "Boîte" menu: ⌘1…⌘4 switch the mailbox of the window in front.
+struct MailboxCommands: Commands {
+    @FocusedBinding(\.mailbox) private var mailbox
+
+    var body: some Commands {
+        CommandMenu("Boîte") {
+            ForEach(Array(Mailbox.allCases.enumerated()), id: \.element) { index, box in
+                Button(box.title) { mailbox = box }
                     .keyboardShortcut(KeyEquivalent(Character(String(index + 1))), modifiers: .command)
-                    .opacity(0)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                    .disabled(mailbox == nil)
             }
         }
     }
@@ -474,12 +509,12 @@ extension SideContent {
 }
 
 extension Mailbox {
-    var shortTitle: LocalizedStringKey {
+    var symbol: String {
         switch self {
-        case .toTriage: "Tout"
-        case .github: "GitHub"
-        case .invoices: "Factures"
-        case .direct: "Pour moi"
+        case .toTriage: "tray"
+        case .github: "chevron.left.forwardslash.chevron.right"
+        case .invoices: "doc.text"
+        case .direct: "person"
         }
     }
 

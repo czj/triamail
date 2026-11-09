@@ -8,7 +8,7 @@ final class InboxModel {
     private(set) var messages: [MailMessage] = [] {
         didSet { counts = Dictionary(uniqueKeysWithValues: Mailbox.allCases.map { mailbox in (mailbox, messages.count(where: mailbox.contains)) }) }
     }
-    /// Per filter, computed once per change of the list rather than on every render.
+    /// Mails left to triage per mailbox (the sidebar's badges), computed once per change of the list rather than on every render.
     private(set) var counts: [Mailbox: Int] = [:]
     private(set) var loading = false
     var error: String?

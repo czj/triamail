@@ -8,7 +8,6 @@ struct AccountsSettingsView: View {
     @State private var clientSecret = ""
     /// Feedback on the OAuth client fields; the sign-in's own outcome is `model.signInMessage`.
     @State private var message: String?
-    @State private var askingClient = false
 
     private let authenticator = GmailAuthenticator()
 
@@ -22,7 +21,7 @@ struct AccountsSettingsView: View {
                         Button("Déconnecter") { model.removeAccount(account) }
                     }
                 }
-                AddGoogleAccountButton(askingClient: $askingClient)
+                AddGoogleAccountButton()
             } header: {
                 Text("Comptes Gmail")
             } footer: {
@@ -44,7 +43,6 @@ struct AccountsSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .oauthClientSheet(isPresented: $askingClient)
         // Again on each sign-in attempt: the client may have just been pasted in a sheet.
         .task(id: model.signInMessage) {
             clientID = authenticator.clientID ?? ""

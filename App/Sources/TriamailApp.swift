@@ -15,7 +15,11 @@ struct TriamailApp: App {
                 .environment(model)
         }
         .windowToolbarStyle(.unified)
-        .commands { UpdateCommands() }
+        .commands {
+            UpdateCommands()
+            SidebarCommands()
+            MailboxCommands()
+        }
 
         Settings {
             SettingsView()

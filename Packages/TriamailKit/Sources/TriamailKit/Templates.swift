@@ -142,7 +142,7 @@ public struct ReplyTemplate: Identifiable, Hashable, Sendable {
     /// standard menu ones: a template cannot take them. Keep in step when a view adds a shortcut.
     public static let reservedShortcuts: [TemplateShortcut] = [String]([
         "cmd+e", "cmd+s", "cmd+r", "cmd+shift+y", "cmd+shift+k", "cmd+option+0",
-        "cmd+1", "cmd+2", "cmd+3", "cmd+4", "cmd+,", "cmd+n", "cmd+w", "cmd+q", "cmd+f",
+        "cmd+1", "cmd+2", "cmd+3", "cmd+4", "cmd+control+s", "cmd+,", "cmd+n", "cmd+w", "cmd+q", "cmd+f",
     ]).compactMap(TemplateShortcut.init)
 
     /// Why each template's shortcut cannot be used, by template ID: taken by the app, or by another template.
