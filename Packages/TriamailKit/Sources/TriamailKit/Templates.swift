@@ -138,11 +138,13 @@ public struct ReplyTemplate: Identifiable, Hashable, Sendable {
         return (fields, lines[(end + 1)...].joined(separator: "\n"))
     }
 
-    /// The app's own shortcuts on the mail window (`.keyboardShortcut` in MainView, InvoicePane) and the
-    /// standard menu ones: a template cannot take them. Keep in step when a view adds a shortcut.
+    /// The app's own shortcuts (the "Mail" and "Boîte" menus, the toolbar, InvoicePane) and the standard menu ones
+    /// (Edit, Window, app menu): a template cannot take them. Keep in step when the app adds a shortcut.
     public static let reservedShortcuts: [TemplateShortcut] = [String]([
         "cmd+e", "cmd+s", "cmd+r", "cmd+shift+y", "cmd+shift+k", "cmd+option+0",
         "cmd+1", "cmd+2", "cmd+3", "cmd+4", "cmd+control+s", "cmd+,", "cmd+n", "cmd+w", "cmd+q", "cmd+f",
+        "cmd+c", "cmd+v", "cmd+x", "cmd+a", "cmd+z", "cmd+shift+z", "cmd+m", "cmd+h", "cmd+option+h",
+        "cmd+shift+/", "cmd+control+f", "cmd+option+v", "cmd+shift+v",
     ]).compactMap(TemplateShortcut.init)
 
     /// Why each template's shortcut cannot be used, by template ID: taken by the app, or by another template.

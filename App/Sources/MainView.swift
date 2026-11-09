@@ -51,7 +51,7 @@ struct MainView: View {
             Group {
                 if let message = selected {
                     MessageDetailView(message: message, translations: translations, replies: replies, summaries: summaries,
-                                      settings: model.settings, markDone: { markDone(message) }, tidy: { tidying = true })
+                                      settings: model.settings, markDone: { markDone(message) }, windowSheetOpen: tidying)
                 } else {
                     ContentUnavailableView("Aucun mail sélectionné", systemImage: "envelope.open")
                 }
@@ -74,9 +74,13 @@ struct MainView: View {
         .searchable(text: $search, placement: .toolbar, prompt: "Rechercher")
         // ⌘1…⌘4 in the "Boîte" menu (MailboxCommands) switch the mailbox of the window in front.
         .focusedSceneValue(\.mailbox, $mailbox)
-        .focusedSceneValue(\.tidy) { tidying = true }
         .sheet(isPresented: $tidying) { TidySheet(settings: model.settings) }
         .toolbar {
+            // A window action, with or without a mail.
+            ToolbarItem(placement: .navigation) {
+                Button("Ranger", systemImage: "folder.badge.gearshape") { tidying = true }
+                    .help("Ranger Téléchargements, Bureau et scans selon les règles d'archivage")
+            }
             ToolbarItem(placement: .primaryAction) {
                 Toggle(isOn: $showsSidePane) {
                     Label("Panneau latéral", systemImage: "sidebar.right")
@@ -415,7 +419,8 @@ struct MessageDetailView: View {
     let summaries: SummaryModel
     let settings: SharedSettings
     let markDone: () -> Void
-    let tidy: () -> Void
+    /// A sheet of the main window (Ranger) is up: the "Mail" menu stays off.
+    let windowSheetOpen: Bool
     @Environment(AppModel.self) private var model
     /// A template with fields: its form is open.
     @State private var asking: ReplyTemplate?
@@ -462,11 +467,13 @@ struct MessageDetailView: View {
             Text("La réponse proposée sous le mail, et tes modifications, seront perdues.")
         }
         // The "Mail" menu (MailCommands) acts on the mail in front, with every shortcut.
-        .focusedSceneValue(\.mailActions, MailActions(
+        // Nil while a sheet or a confirmation is up: the menu's shortcuts must not act behind it.
+        .focusedSceneValue(\.mailActions, sheetOpen ? nil : MailActions(
             markDone: markDone,
             reply: reply(with:),
             summarize: summarize,
             remind: addReminder,
+            chooseReminderDate: { choosingReminderDate = true },
             launchClaudeCode: message.gitHubRepository == nil ? nil : launchClaudeCode,
             openInBrowser: message.primaryLink.map { link in { NSWorkspace.shared.open(link) } }
         ))
@@ -495,12 +502,7 @@ struct MessageDetailView: View {
             }
             ToolbarItem {
                 Menu("Répondre", systemImage: "arrowshape.turn.up.left") {
-                    ForEach(model.templates) { template in
-                        Button(template.label, systemImage: template.icon ?? "sparkles") { reply(with: template) }
-                    }
-                    if model.templates.isEmpty {
-                        Text("Aucun modèle : ajoutes-en dans Réglages > Modèles")
-                    }
+                    TemplateMenuItems(model: model, action: reply(with:))
                 }
                 .help("Rédiger une réponse avec un modèle (raccourcis dans le menu Mail)")
             }
@@ -531,15 +533,15 @@ struct MessageDetailView: View {
                         Button("Ouvrir Claude Code", systemImage: "terminal", action: launchClaudeCode)
                     }
                     if let link = message.primaryLink {
-                        Link(destination: link) { Label("Ouvrir dans le navigateur", systemImage: "safari") }
+                        Link(destination: link) { Label("Ouvrir dans le navigateur (\(link.host() ?? "lien"))", systemImage: "safari") }
                     }
-                    Divider()
-                    Button("Ranger Téléchargements, Bureau et scans…", systemImage: "folder.badge.gearshape", action: tidy)
                 }
-                .help("Résumer, Claude Code, navigateur, ranger")
+                .help("Résumer, Claude Code, navigateur")
             }
         }
     }
+
+    private var sheetOpen: Bool { windowSheetOpen || asking != nil || replacing != nil || choosingReminderDate }
 
     private func summarize() {
         summaries.summarize(message, settings: settings)

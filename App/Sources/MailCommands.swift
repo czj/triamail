@@ -1,12 +1,13 @@
 import SwiftUI
 import TriamailKit
 
-/// What the "Mail" menu can do with the mail in front (set by `MessageDetailView`).
+/// What the "Mail" menu can do with the mail in front (set by `MessageDetailView`, nil while a sheet is open).
 struct MailActions {
     var markDone: () -> Void
     var reply: (ReplyTemplate) -> Void
     var summarize: () -> Void
     var remind: (ReminderDelay) -> Void
+    var chooseReminderDate: () -> Void
     /// Nil when the mail is not a GitHub notification.
     var launchClaudeCode: (() -> Void)?
     /// Nil when the mail links nowhere.
@@ -15,15 +16,34 @@ struct MailActions {
 
 extension FocusedValues {
     @Entry var mailActions: MailActions?
-    /// "Ranger" for the window in front, with or without a mail selected.
-    @Entry var tidy: (() -> Void)?
+}
+
+/// The reply templates as menu items: the toolbar's "Répondre" menu and the "Mail" menu's.
+/// A view, so the menus follow template edits (a `Commands` body does not reliably observe the model).
+struct TemplateMenuItems: View {
+    let model: AppModel
+    /// Shortcuts are bound in the menu bar only: the toolbar menu shows the same items without them.
+    var bindsShortcuts = false
+    let action: (ReplyTemplate) -> Void
+
+    var body: some View {
+        let problems = model.shortcutProblems
+        ForEach(model.templates) { template in
+            // A shortcut that clashes (Settings > Modèles shows why) is not bound.
+            let shortcut = bindsShortcuts && problems[template.id] == nil ? template.shortcut : nil
+            Button(template.label, systemImage: template.icon ?? "sparkles") { action(template) }
+                .keyboardShortcut(shortcut?.keyboardShortcut)
+        }
+        if model.templates.isEmpty {
+            Text("Aucun modèle : ajoutes-en dans Réglages > Modèles")
+        }
+    }
 }
 
 /// The "Mail" menu: every action on the mail in front, with its shortcut, including one per reply template.
 struct MailCommands: Commands {
     let model: AppModel
     @FocusedValue(\.mailActions) private var actions
-    @FocusedValue(\.tidy) private var tidy
 
     var body: some Commands {
         CommandMenu("Mail") {
@@ -31,16 +51,13 @@ struct MailCommands: Commands {
                 .keyboardShortcut("e")
                 .disabled(actions == nil)
             Menu("Répondre") {
-                ForEach(model.templates) { template in
-                    // A shortcut that clashes (Settings > Modèles shows why) is not bound.
-                    let shortcut = model.shortcutProblems[template.id] == nil ? template.shortcut : nil
-                    Button(template.label) { actions?.reply(template) }
-                        .keyboardShortcut(shortcut?.keyboardShortcut)
-                }
+                TemplateMenuItems(model: model, bindsShortcuts: true) { actions?.reply($0) }
             }
-            .disabled(actions == nil || model.templates.isEmpty)
+            .disabled(actions == nil)
             Menu("Rappel") {
                 ReminderPresetItems { actions?.remind($0) }
+                Divider()
+                Button("Choisir une date…") { actions?.chooseReminderDate() }
             }
             .disabled(actions == nil)
             Divider()
@@ -52,9 +69,6 @@ struct MailCommands: Commands {
                 .disabled(actions?.launchClaudeCode == nil)
             Button("Ouvrir dans le navigateur") { actions?.openInBrowser?() }
                 .disabled(actions?.openInBrowser == nil)
-            Divider()
-            Button("Ranger Téléchargements, Bureau et scans…") { tidy?() }
-                .disabled(tidy == nil)
         }
     }
 }

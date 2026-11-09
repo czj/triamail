@@ -5,7 +5,7 @@ A macOS mail client for triaging email and acting on it, without leaving the lis
 - a native mail layout: a sidebar with the mailboxes (to triage, GitHub, invoices, for me; ⌘1…⌘4 in the "Boîte" menu, with the number of mails left to triage) and the connected accounts, the mail list (sender avatars, compact dates; hover, right-click or swipe to archive or set a reminder without opening the mail), the mail (HTML as sent, without JavaScript, remote images blocked until "Charger", links opened in the browser), and on the right the notification's page (GitHub…) or the invoice PDF (⌥⌘0 to hide it);
 - launch a Claude Code session on the linked repository;
 - draft an AI reply from a template, saved as a draft: the toolbar's "Répondre" menu and the menu bar's "Mail" menu list the templates with their shortcuts, templates edited in Réglages > Modèles;
-- a short toolbar (Traité, Répondre, Rappel, "…" for Résumer, Claude Code, the browser and Ranger) and a "Mail" menu with every action and its shortcut;
+- a short toolbar (Traité, Répondre, Rappel, "…" for Résumer, Claude Code and the browser; Ranger for the window) and a "Mail" menu with every mail action and its shortcut;
 - create a reminder (D+1, D+3, D+7 or a chosen date) in the Reminders app;
 - archive an invoice (rename, file, forward to accounting);
 - automatically translate foreign-language emails, locally;
